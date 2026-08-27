@@ -203,6 +203,9 @@ function PocketSettingsTab({ rpcCall, t }) {
   // ---- 固定域名（命名隧道 + Cloudflare Access）----
   const [fixedHostnameInput, setFixedHostnameInput] = useState('');
   const [fixedBusy, setFixedBusy] = useState(false);
+  const [fixedOpen, setFixedOpen] = useState(false); // 固定域名区块默认折叠（高级功能，展开才显示向导）
+  const [fixedAdvOpen, setFixedAdvOpen] = useState(false); // 「高级选项」（额外 PIN 纵深防御）默认折叠
+  const [fixedGuideOpen, setFixedGuideOpen] = useState(false); // Access 配置引导弹窗
 
   /** 保存固定域名（服务端校验；改域名后需重新初始化隧道与 DNS）。 */
   const saveFixedHostname = async () => {
@@ -372,6 +375,16 @@ function PocketSettingsTab({ rpcCall, t }) {
   const fixedRunning = tunnelMode === 'fixed' && Boolean(tunnelUrl);
   const quickRunning = tunnelMode !== 'fixed' && Boolean(tunnelUrl);
   const fixedPinRequired = !fAccess || fPinAlways; // 固定域名是否要求内置 PIN
+  // 折叠摘要：状态标签（未配置/待初始化/已就绪/运行中）+ 对应颜色
+  const fixedStatus = !fHostname ? 'unconfigured' : (fixedRunning ? 'running' : (fTunnel && fDns ? 'ready' : 'pending'));
+  const fixedStatusLabel = fixedStatus === 'unconfigured' ? t('fixedStatusUnconfigured')
+    : fixedStatus === 'running' ? t('fixedStatusRunning')
+    : fixedStatus === 'ready' ? t('fixedStatusReady')
+    : t('fixedStatusPending');
+  const fixedStatusColor = fixedStatus === 'unconfigured' ? 'var(--dsw-alias-label-tertiary,#8b93a1)'
+    : fixedStatus === 'running' ? 'var(--dsw-alias-state-success-primary,#15803d)'
+    : fixedStatus === 'ready' ? 'var(--dsw-alias-brand-primary,#4f6ef7)'
+    : 'var(--dsw-alias-state-warn-primary,#b45309)';
 
   return h('div', { style: styles.card },
     h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 } },
@@ -526,118 +539,146 @@ function PocketSettingsTab({ rpcCall, t }) {
       ),
 
       // ---- 固定域名（命名隧道 + Cloudflare Access）----
+      // 高级功能默认折叠：头部一行（标题 + 状态标签 + 展开箭头），点开才显示向导与开关。
+      // 状态点一目了然：未配置 / 待初始化 / 已就绪 / 运行中——不用展开就能判断进度。
       h('div', { style: { ...styles.block, borderTop: '1px dashed var(--dsw-alias-border-l2,#e5e7eb)', marginTop: 10, paddingTop: 10 } },
-        h('div', { style: { fontSize: 12, fontWeight: 600, color: 'var(--dsw-alias-label-secondary,#6b7280)' } }, t('fixedTitle')),
-        h('div', { style: { ...styles.muted, marginTop: 2 } }, t('fixedSubtitle')),
-
-        // 域名输入/保存
-        h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 } },
-          h('span', { style: { fontSize: 12, color: 'var(--dsw-alias-label-secondary,#6b7280)' } }, t('fixedHostnameLabel')),
-          h('input', {
-            style: { flex: 1, minWidth: 0, font: 'inherit', height: 30, padding: '0 8px', borderRadius: 8, border: '1px solid var(--dsw-alias-border-l2,#d1d5db)', background: 'var(--dsw-alias-bg-layer-1,#fff)', color: 'var(--dsw-alias-label-primary,inherit)', outline: 'none' },
-            placeholder: t('fixedHostnamePlaceholder'),
-            value: fixedHostnameInput,
-            onChange: (e) => setFixedHostnameInput(e.target.value),
-            onKeyDown: (e) => { if (e.key === 'Enter') saveFixedHostname(); },
-          }),
-          h('button', { style: { ...styles.btn, height: 30, padding: '0 12px', fontSize: 12 }, onClick: saveFixedHostname, disabled: fixedBusy }, t('fixedSave')),
+        h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', userSelect: 'none' }, onClick: () => setFixedOpen(!fixedOpen) },
+          h('span', { style: { fontSize: 12, fontWeight: 600, color: 'var(--dsw-alias-label-secondary,#6b7280)' } }, t('fixedTitle')),
+          h('span', { style: { marginLeft: 'auto', fontSize: 11, fontWeight: 600, padding: '2px 10px', borderRadius: 999, color: fixedStatusColor, border: `1px solid ${fixedStatusColor}`, background: 'var(--dsw-alias-bg-layer-1,#fff)' } }, fixedStatusLabel),
+          h('span', { style: { fontSize: 10, color: 'var(--dsw-alias-label-tertiary,#8b93a1)' } }, fixedOpen ? '▴' : '▾'),
         ),
-        fHostname ? h('div', { style: { marginTop: 4, fontSize: 11, color: 'var(--dsw-alias-state-success-primary,#15803d)' } }, fmt(t, 'fixedSaved', { hostname: fHostname })) : null,
+        // 折叠摘要：已配置显示域名，未配置给提示（含 Access 推荐说明）
+        !fixedOpen ? h('div', { style: { ...styles.muted, marginTop: 2 } },
+          fHostname ? fHostname : t('fixedCollapsedHint'),
+        ) : null,
 
-        // 初始化向导：① 登录 ② 建隧道+绑 DNS ③ 开启
-        h('div', { style: { ...styles.muted, marginTop: 10, fontWeight: 600 } }, t('fixedSetupWizard')),
-        h('div', { style: { marginTop: 6, fontSize: 12, color: 'var(--dsw-alias-label-secondary,#6b7280)', lineHeight: 1.6 } },
-          // ① 登录
-          h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' } },
-            h('span', null, fCert ? `✅ ${t('fixedStep1Done')}` : t('fixedStep1')),
-            fCert
-              ? null
-              : h('button', { style: { ...styles.btn, height: 26, padding: '0 10px', fontSize: 12 }, onClick: runFixedLogin, disabled: fixedBusy }, t('fixedLoginBtn')),
+        // 展开内容（向导 + 开关）
+        !fixedOpen ? null : h('div', null,
+          h('div', { style: { ...styles.muted, marginTop: 2 } }, t('fixedSubtitle')),
+
+          // 域名输入/保存
+          h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 } },
+            h('span', { style: { fontSize: 12, color: 'var(--dsw-alias-label-secondary,#6b7280)' } }, t('fixedHostnameLabel')),
+            h('input', {
+              style: { flex: 1, minWidth: 0, font: 'inherit', height: 30, padding: '0 8px', borderRadius: 8, border: '1px solid var(--dsw-alias-border-l2,#d1d5db)', background: 'var(--dsw-alias-bg-layer-1,#fff)', color: 'var(--dsw-alias-label-primary,inherit)', outline: 'none' },
+              placeholder: t('fixedHostnamePlaceholder'),
+              value: fixedHostnameInput,
+              onChange: (e) => setFixedHostnameInput(e.target.value),
+              onKeyDown: (e) => { if (e.key === 'Enter') saveFixedHostname(); },
+            }),
+            h('button', { style: { ...styles.btn, height: 30, padding: '0 12px', fontSize: 12 }, onClick: saveFixedHostname, disabled: fixedBusy }, t('fixedSave')),
           ),
-          // 登录进行中/授权链接
-          !fCert && status?.fixedLogin?.url
-            ? h('div', { style: { marginTop: 4, fontSize: 11, color: 'var(--dsw-alias-state-warn-primary,#b45309)', lineHeight: 1.5 } },
-              t('fixedLoginHint'),
-              h('div', null,
-                h('a', { href: status.fixedLogin.url, target: '_blank', rel: 'noreferrer', style: { color: 'var(--dsw-alias-brand-primary,#4f6ef7)', textDecoration: 'underline' } }, t('fixedOpenUrl')),
-              ),
-            )
-            : null,
-          // ② 初始化
-          h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginTop: 4, flexWrap: 'wrap' } },
-            h('span', null, fTunnel && fDns ? `✅ ${t('fixedStep2Done')}` : t('fixedStep2')),
-            !(fTunnel && fDns)
-              ? h('button', {
-                style: { ...styles.btn, height: 26, padding: '0 10px', fontSize: 12 },
-                onClick: runFixedSetup,
-                disabled: fixedBusy || !fCert || !fHostname,
-                title: !fCert ? t('fixedNeedLoginFirst') : (!fHostname ? t('fixedNeedHostname') : ''),
-              }, fixedBusy ? t('fixedSetupBusy') : t('fixedSetupBtn'))
+          fHostname ? h('div', { style: { marginTop: 4, fontSize: 11, color: 'var(--dsw-alias-state-success-primary,#15803d)' } }, fmt(t, 'fixedSaved', { hostname: fHostname })) : null,
+
+          // 初始化向导：① 登录 ② 建隧道+绑 DNS ③ 开启
+          h('div', { style: { ...styles.muted, marginTop: 10, fontWeight: 600 } }, t('fixedSetupWizard')),
+          h('div', { style: { marginTop: 6, fontSize: 12, color: 'var(--dsw-alias-label-secondary,#6b7280)', lineHeight: 1.6 } },
+            // ① 登录
+            h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' } },
+              h('span', null, fCert ? `✅ ${t('fixedStep1Done')}` : t('fixedStep1')),
+              fCert
+                ? null
+                : h('button', { style: { ...styles.btn, height: 26, padding: '0 10px', fontSize: 12 }, onClick: runFixedLogin, disabled: fixedBusy }, t('fixedLoginBtn')),
+            ),
+            // 登录进行中/授权链接
+            !fCert && status?.fixedLogin?.url
+              ? h('div', { style: { marginTop: 4, fontSize: 11, color: 'var(--dsw-alias-state-warn-primary,#b45309)', lineHeight: 1.5 } },
+                t('fixedLoginHint'),
+                h('div', null,
+                  h('a', { href: status.fixedLogin.url, target: '_blank', rel: 'noreferrer', style: { color: 'var(--dsw-alias-brand-primary,#4f6ef7)', textDecoration: 'underline' } }, t('fixedOpenUrl')),
+                ),
+              )
               : null,
-          ),
-          // ③ 开启/运行
-          fixedRunning
-            ? h('div', { style: { marginTop: 8 } },
-              h('div', { style: { fontSize: 12, fontWeight: 600, color: 'var(--dsw-alias-state-success-primary,#15803d)' } }, t('fixedRunning')),
-              h('img', { src: status.tunnelQr, alt: 'Fixed QR', style: styles.qr }),
-              h('div', { style: styles.code }, tunnelUrl),
-              fixedPinRequired && status.accessToken
-                ? (customPin?.which === 'public'
-                    ? customPinRow('public')
-                    : h('div', { style: { marginTop: 6, fontSize: 12, color: 'var(--dsw-alias-label-secondary,#6b7280)', lineHeight: 1.5 } },
-                      fmt(t, status?.publicPinCustom ? 'wanPinCustom' : 'fixedWanPin', { pin: status.accessToken }),
-                      customBtn('public'),
-                      status?.publicPinCustom ? h('div', { style: { marginTop: 2, fontSize: 11, color: 'var(--dsw-alias-state-warn-primary,#b45309)' } }, t('pinCustomHint')) : null,
-                    ))
-                : null,
-              h('button', { style: styles.btn, onClick: stopTunnel }, t('fixedStop')),
-            )
-            : h('div', { style: { marginTop: 6 } },
-              h('button', {
-                style: { ...styles.primary },
-                onClick: startFixedTunnel,
-                disabled: fixedBusy || !fTunnel || !fDns || !fHostname,
-              }, t('fixedEnableBtn')),
-              (!fTunnel || !fDns) && fHostname
-                ? h('div', { style: { marginTop: 4, fontSize: 11, color: 'var(--dsw-alias-state-warn-primary,#b45309)' } },
-                  !fCert ? t('fixedNeedLoginFirst') : t('fixedNeedSetup'))
+            // ② 初始化
+            h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginTop: 4, flexWrap: 'wrap' } },
+              h('span', null, fTunnel && fDns ? `✅ ${t('fixedStep2Done')}` : t('fixedStep2')),
+              !(fTunnel && fDns)
+                ? h('button', {
+                  style: { ...styles.btn, height: 26, padding: '0 10px', fontSize: 12 },
+                  onClick: runFixedSetup,
+                  disabled: fixedBusy || !fCert || !fHostname,
+                  title: !fCert ? t('fixedNeedLoginFirst') : (!fHostname ? t('fixedNeedHostname') : ''),
+                }, fixedBusy ? t('fixedSetupBusy') : t('fixedSetupBtn'))
                 : null,
             ),
-        ),
-
-        // Cloudflare Access 开关（推荐）
-        h('div', { style: { borderTop: '1px solid var(--dsw-alias-border-l2,#e5e7eb)', marginTop: 10, paddingTop: 8 } },
-          h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
-            h('span', { style: { fontSize: 12, color: 'var(--dsw-alias-label-secondary,#6b7280)' } }, t('fixedAccessTitle')),
-            h('button', {
-              style: { ...styles.btn, height: 28, padding: '0 12px', fontSize: 12, fontWeight: fAccess ? 600 : 400, background: fAccess ? 'var(--dsw-alias-button-primary-fill, var(--dsw-alias-brand-primary,#4f6ef7))' : 'var(--dsw-alias-bg-layer-1,#fff)', color: fAccess ? 'var(--dsw-alias-label-primary-foreground, #fff)' : 'var(--dsw-alias-label-primary,inherit)' },
-              onClick: () => setFixedAccess(true),
-            }, t('on')),
-            h('button', {
-              style: { ...styles.btn, height: 28, padding: '0 12px', fontSize: 12, fontWeight: !fAccess ? 600 : 400, background: !fAccess ? 'var(--dsw-alias-state-error-primary,#dc2626)' : 'var(--dsw-alias-bg-layer-1,#fff)', color: !fAccess ? '#fff' : 'var(--dsw-alias-label-primary,inherit)' },
-              onClick: () => setFixedAccess(false),
-            }, t('off')),
-            h('a', { href: 'https://developers.cloudflare.com/cloudflare-one/policies/access/', target: '_blank', rel: 'noreferrer', style: { fontSize: 11, color: 'var(--dsw-alias-brand-primary,#4f6ef7)', textDecoration: 'underline', marginLeft: 'auto' } }, t('fixedAccessDocs')),
-          ),
-          h('div', { style: { marginTop: 4, fontSize: 11, lineHeight: 1.5, color: fAccess ? 'var(--dsw-alias-label-tertiary,#8b93a1)' : 'var(--dsw-alias-state-warn-primary,#b45309)' } },
-            fAccess ? t('fixedAccessHintOn') : t('fixedAccessHintOff')),
-          // PIN 策略：Access 开 → 可选额外 PIN；Access 关 → 强制 PIN（提示）
-          fAccess
-            ? h('div', { style: { marginTop: 8 } },
-              h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
-                h('span', { style: { fontSize: 12, color: 'var(--dsw-alias-label-secondary,#6b7280)' } }, t('fixedPinTitle')),
+            // ③ 开启/运行
+            fixedRunning
+              ? h('div', { style: { marginTop: 8 } },
+                h('div', { style: { fontSize: 12, fontWeight: 600, color: 'var(--dsw-alias-state-success-primary,#15803d)' } }, t('fixedRunning')),
+                h('img', { src: status.tunnelQr, alt: 'Fixed QR', style: styles.qr }),
+                h('div', { style: styles.code }, tunnelUrl),
+                fixedPinRequired && status.accessToken
+                  ? (customPin?.which === 'public'
+                      ? customPinRow('public')
+                      : h('div', { style: { marginTop: 6, fontSize: 12, color: 'var(--dsw-alias-label-secondary,#6b7280)', lineHeight: 1.5 } },
+                        fmt(t, status?.publicPinCustom ? 'wanPinCustom' : 'fixedWanPin', { pin: status.accessToken }),
+                        customBtn('public'),
+                        status?.publicPinCustom ? h('div', { style: { marginTop: 2, fontSize: 11, color: 'var(--dsw-alias-state-warn-primary,#b45309)' } }, t('pinCustomHint')) : null,
+                      ))
+                  : null,
+                h('button', { style: styles.btn, onClick: stopTunnel }, t('fixedStop')),
+              )
+              : h('div', { style: { marginTop: 6 } },
                 h('button', {
-                  style: { ...styles.btn, height: 28, padding: '0 12px', fontSize: 12, fontWeight: fPinAlways ? 600 : 400, background: fPinAlways ? 'var(--dsw-alias-button-primary-fill, var(--dsw-alias-brand-primary,#4f6ef7))' : 'var(--dsw-alias-bg-layer-1,#fff)', color: fPinAlways ? 'var(--dsw-alias-label-primary-foreground, #fff)' : 'var(--dsw-alias-label-primary,inherit)' },
-                  onClick: () => setFixedPinAlways(true),
-                }, t('on')),
-                h('button', {
-                  style: { ...styles.btn, height: 28, padding: '0 12px', fontSize: 12, fontWeight: !fPinAlways ? 600 : 400, background: !fPinAlways ? 'var(--dsw-alias-bg-layer-1,#fff)' : 'var(--dsw-alias-bg-layer-1,#fff)', color: 'var(--dsw-alias-label-primary,inherit)' },
-                  onClick: () => setFixedPinAlways(false),
-                }, t('off')),
+                  style: { ...styles.primary },
+                  onClick: startFixedTunnel,
+                  disabled: fixedBusy || !fTunnel || !fDns || !fHostname,
+                }, t('fixedEnableBtn')),
+                (!fTunnel || !fDns) && fHostname
+                  ? h('div', { style: { marginTop: 4, fontSize: 11, color: 'var(--dsw-alias-state-warn-primary,#b45309)' } },
+                    !fCert ? t('fixedNeedLoginFirst') : t('fixedNeedSetup'))
+                  : null,
               ),
-              h('div', { style: { marginTop: 4, fontSize: 11, color: 'var(--dsw-alias-label-tertiary,#8b93a1)' } }, fPinAlways ? t('fixedPinHintOn') : t('fixedPinHintOff')),
-            )
-            : h('div', { style: { marginTop: 6, fontSize: 11, color: 'var(--dsw-alias-state-warn-primary,#b45309)' } }, t('fixedPinForced')),
+          ),
+
+          // Cloudflare Access 开关（推荐）
+          h('div', { style: { borderTop: '1px solid var(--dsw-alias-border-l2,#e5e7eb)', marginTop: 10, paddingTop: 8 } },
+            h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+              h('span', { style: { fontSize: 12, color: 'var(--dsw-alias-label-secondary,#6b7280)' } }, t('fixedAccessTitle')),
+              h('button', {
+                style: { ...styles.btn, height: 28, padding: '0 12px', fontSize: 12, fontWeight: fAccess ? 600 : 400, background: fAccess ? 'var(--dsw-alias-button-primary-fill, var(--dsw-alias-brand-primary,#4f6ef7))' : 'var(--dsw-alias-bg-layer-1,#fff)', color: fAccess ? 'var(--dsw-alias-label-primary-foreground, #fff)' : 'var(--dsw-alias-label-primary,inherit)' },
+                onClick: () => setFixedAccess(true),
+              }, t('on')),
+              h('button', {
+                style: { ...styles.btn, height: 28, padding: '0 12px', fontSize: 12, fontWeight: !fAccess ? 600 : 400, background: !fAccess ? 'var(--dsw-alias-state-error-primary,#dc2626)' : 'var(--dsw-alias-bg-layer-1,#fff)', color: !fAccess ? '#fff' : 'var(--dsw-alias-label-primary,inherit)' },
+                onClick: () => setFixedAccess(false),
+              }, t('off')),
+              // 配置引导：内嵌 CF Dashboard 步骤（比外链教程更少跳转）
+              h('button', { style: { ...styles.btn, height: 28, padding: '0 10px', fontSize: 11, marginLeft: 'auto' }, onClick: () => setFixedGuideOpen(true) }, t('fixedGuideBtn')),
+            ),
+            h('div', { style: { marginTop: 4, fontSize: 11, lineHeight: 1.5, color: fAccess ? 'var(--dsw-alias-label-tertiary,#8b93a1)' : 'var(--dsw-alias-state-warn-primary,#b45309)' } },
+              fAccess ? t('fixedAccessHintOn') : t('fixedAccessHintOff')),
+            // PIN 策略：Access 关 → 强制 PIN（安全提示，主界面直接显示，不藏）
+            fAccess
+              ? null
+              : h('div', { style: { marginTop: 6, fontSize: 11, color: 'var(--dsw-alias-state-warn-primary,#b45309)' } }, t('fixedPinForced')),
+            // 高级选项（默认折叠）：仅 Access 开启时有意义——「额外要求 8 位 PIN」纵深防御
+            fAccess
+              ? h('div', { style: { marginTop: 8, borderTop: '1px solid var(--dsw-alias-border-l2,#e5e7eb)', paddingTop: 8 } },
+                h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', userSelect: 'none', fontSize: 12, color: 'var(--dsw-alias-label-secondary,#6b7280)' }, onClick: () => setFixedAdvOpen(!fixedAdvOpen) },
+                  h('span', null, t('fixedAdvanced')),
+                  h('span', { style: { marginLeft: 'auto', fontSize: 10, color: 'var(--dsw-alias-label-tertiary,#8b93a1)' } }, fixedAdvOpen ? '▴' : '▾'),
+                ),
+                h('div', { style: { marginTop: 2, fontSize: 11, color: 'var(--dsw-alias-label-tertiary,#8b93a1)' } }, t('fixedAdvancedHint')),
+                fixedAdvOpen
+                  ? h('div', { style: { marginTop: 8 } },
+                    h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+                      h('span', { style: { fontSize: 12, color: 'var(--dsw-alias-label-secondary,#6b7280)' } }, t('fixedPinTitle')),
+                      h('button', {
+                        style: { ...styles.btn, height: 28, padding: '0 12px', fontSize: 12, fontWeight: fPinAlways ? 600 : 400, background: fPinAlways ? 'var(--dsw-alias-button-primary-fill, var(--dsw-alias-brand-primary,#4f6ef7))' : 'var(--dsw-alias-bg-layer-1,#fff)', color: fPinAlways ? 'var(--dsw-alias-label-primary-foreground, #fff)' : 'var(--dsw-alias-label-primary,inherit)' },
+                        onClick: () => setFixedPinAlways(true),
+                      }, t('on')),
+                      h('button', {
+                        style: { ...styles.btn, height: 28, padding: '0 12px', fontSize: 12, fontWeight: !fPinAlways ? 600 : 400, background: 'var(--dsw-alias-bg-layer-1,#fff)', color: 'var(--dsw-alias-label-primary,inherit)' },
+                        onClick: () => setFixedPinAlways(false),
+                      }, t('off')),
+                    ),
+                    h('div', { style: { marginTop: 4, fontSize: 11, color: 'var(--dsw-alias-label-tertiary,#8b93a1)' } }, fPinAlways ? t('fixedPinHintOn') : t('fixedPinHintOff')),
+                  )
+                  : null,
+              )
+              : null,
+          ),
         ),
       ),
     ),
@@ -674,6 +715,42 @@ function PocketSettingsTab({ rpcCall, t }) {
           }, t('disclaimerAgree')),
         ),
         !disclaimerChecked ? h('div', { style: { marginTop: 8, fontSize: 12, color: 'var(--dsw-alias-state-error-primary,#dc2626)' } }, t('disclaimerHint')) : null,
+      ),
+    ) : null,
+
+    // Cloudflare Access 配置引导弹窗：按地点分组（CF 后台 / 插件本页 / 手机），每步标清在哪操作
+    fixedGuideOpen ? h('div', { style: { position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 } },
+      h('div', { style: { background: 'var(--dsw-alias-bg-layer-1,#fff)', borderRadius: 12, maxWidth: 460, width: '100%', maxHeight: '80vh', overflowY: 'auto', padding: '20px 22px', boxShadow: '0 8px 32px rgba(0,0,0,.18)' } },
+        h('div', { style: { fontWeight: 600, fontSize: 15, color: 'var(--dsw-alias-brand-primary,#4f6ef7)', marginBottom: 6 } }, t('fixedGuideTitle')),
+        h('div', { style: { fontSize: 12, color: 'var(--dsw-alias-label-secondary,#6b7280)', lineHeight: 1.6 } }, t('fixedGuideIntro')),
+        // 三组步骤：CF 后台（①②③）→ 插件本页（④）→ 手机（⑤）
+        [
+          { loc: 'fixedGuideLocCfdash', steps: [['fixedGuideStep1', 'fixedGuideStep1Detail'], ['fixedGuideStep2', 'fixedGuideStep2Detail'], ['fixedGuideStep3', 'fixedGuideStep3Detail']] },
+          { loc: 'fixedGuideLocPlugin', steps: [['fixedGuideStep4', 'fixedGuideStep4Detail']] },
+          { loc: 'fixedGuideLocPhone', steps: [['fixedGuideStep5', 'fixedGuideStep5Detail']] },
+        ].map((group) =>
+          h('div', { key: group.loc, style: { marginTop: 10 } },
+            h('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--dsw-alias-brand-primary,#4f6ef7)', lineHeight: 1.5 } }, t(group.loc)),
+            group.steps.map(([titleKey, detailKey]) =>
+              h('div', { key: titleKey, style: { marginTop: 6, fontSize: 12, lineHeight: 1.6 } },
+                h('div', { style: { fontWeight: 600, color: 'var(--dsw-alias-label-primary,inherit)' } }, t(titleKey)),
+                h('div', { style: { marginTop: 2, color: 'var(--dsw-alias-label-secondary,#6b7280)' } }, fmt(t, detailKey, { hostname: fHostname || t('fixedHostnamePlaceholder') })),
+              ),
+            ),
+          ),
+        ),
+        // MFA 方式说明
+        h('div', { style: { borderTop: '1px solid var(--dsw-alias-border-l2,#e5e7eb)', marginTop: 12, paddingTop: 10, fontSize: 12, lineHeight: 1.7 } },
+          h('div', { style: { fontWeight: 600, color: 'var(--dsw-alias-label-primary,inherit)' } }, t('fixedGuideMfaTitle')),
+          h('div', { style: { color: 'var(--dsw-alias-label-secondary,#6b7280)' } }, `• ${t('fixedGuideMfa1')}`),
+          h('div', { style: { color: 'var(--dsw-alias-label-secondary,#6b7280)' } }, `• ${t('fixedGuideMfa2')}`),
+        ),
+        // 二维码性质提醒（安全相关，用醒目色）
+        h('div', { style: { marginTop: 10, fontSize: 11, color: 'var(--dsw-alias-state-warn-primary,#b45309)', lineHeight: 1.6 } }, t('fixedGuideQrNote')),
+        h('div', { style: { display: 'flex', gap: 8, marginTop: 16 } },
+          h('a', { href: 'https://developers.cloudflare.com/cloudflare-one/policies/access/', target: '_blank', rel: 'noreferrer', style: { ...styles.btn, flex: 1, textDecoration: 'none', justifyContent: 'center' } }, t('fixedAccessDocs')),
+          h('button', { style: { ...styles.primary, flex: 1 }, onClick: () => setFixedGuideOpen(false) }, t('ok')),
+        ),
       ),
     ) : null,
 

@@ -90,6 +90,40 @@ npx @deepseek-ai/dsh web
 >
 > 高级选项：自动识别在 Tailscale/VPN 等场景下可能选不到可达地址。可在「局域网地址」下拉框手动选择已检测到的 IP；一般不需要修改。
 
+### 局域网（异地 · ZeroTier/Tailscale 备选方案）
+
+不想开公网隧道、又想在 4G/公司网访问？**ZeroTier / Tailscale 把手机"放进"电脑所在的局域网**，走的就是上面的局域网模式——不用公网隧道、不用 CF 账号，只要在插件设置页把局域网地址选成虚拟网卡 IP 即可。
+
+**条件准备**（ZeroTier 为例，Tailscale 同理）：
+
+```text
+① 注册 ZeroTier Central（my.zerotier.com，免费 25 台设备）→ Create Network 得 network ID
+② 电脑装 ZeroTier 客户端 → zerotier-cli join <network-id>
+③ 手机 App Store / Play 装 ZeroTier → 加入同一 network ID
+④ Central 网络页把两台设备都勾选 Auth（不勾 = 进不来）
+```
+
+**dsh-pocket 里怎么用**：
+
+```text
+手机 ZeroTier 连上后（拿到虚拟 IP）→ 插件设置页 → 手机访问 → 局域网区块
+→ 「局域网地址」下拉框**手动选择电脑的 ZeroTier IP**（自动识别会故意避开 VPN 网卡）
+→ 手机访问 http://<电脑虚拟IP>:3081 → 输局域网 PIN → 进入 DSH
+```
+
+**安全模型**：ZeroTier 是**设备级信任**（授权设备才能进网络，无用户登录/MFA 流程），叠加 dsh-pocket 的局域网 PIN 共两层；设备丢失可在 Central 立即踢除。
+
+**和公网方案的取舍**：
+
+| | ZeroTier/Tailscale 备选 | 公网隧道（快速/固定域名） |
+|---|---|---|
+| 手机装客户端 | 要装（ZeroTier/Tailscale App） | 不用，浏览器直接用 |
+| 认证 | 设备授权 + 局域网 PIN | 8 位 PIN（固定域名可换 CF Access MFA） |
+| 速度 | P2P 直连通常快；打洞失败走中继会慢 | 走 CF 边缘回连，一般稍慢 |
+| 条件 | ZeroTier/Tailscale 账号 + 设备装客户端 | CF 账号（快速隧道连账号都不用） |
+
+> 打洞失败（两边都严格 NAT）时 ZeroTier 会走中继变慢——有公网 VPS 的话可自建 moon 改善。
+
 ### 公网（人在外面）
 
 同一页点「**开启公网访问**」→ **每次都会先弹出安全免责声明**，勾选「我已知情」后才能开启（公司/涉密网络请先确认合规）→ 等隧道建立（首次会下载 cloudflared，macOS/Linux 走清华镜像秒下）→ 手机扫「🌐 公网」二维码 → 打开链接**输入 8 位访问密码**（密码显示在设置页公网区块，默认**每次开启公网变新**，也可点「自定义」设成固定密码——自定义后不再换新）→ 人在外面（4G/公司网）也能访问。
@@ -113,16 +147,30 @@ npx @deepseek-ai/dsh web
 - **MFA 强度远高于 8 位 PIN**：邮箱验证码（One-time PIN）/ TOTP / WebAuthn 硬件密钥都行，还能限定允许的邮箱域名
 - **免费**：Zero Trust 免费计划支持最多 50 用户，个人自用足够
 
-配置步骤（在 Cloudflare Dashboard，约 5 分钟）：
+配置步骤（在 Cloudflare Dashboard，约 5 分钟；插件设置页「配置引导」弹窗里有同样内容）：
 
 ```text
-Zero Trust → Access → Applications → Add an application → Self-hosted
-  Application domain: dsh.example.com
-  Policy: Allow
-    Include: Everyone（或限定你的邮箱域名）
-    Require:  → One-time PIN（邮箱验证码，最简单的 MFA）
-              （或 TOTP / WebAuthn 硬件密钥，按需选）
+① 创建 Access 应用
+   Zero Trust → Access → Applications → Add an application → Self-hosted
+   Application domain: dsh.example.com
+
+② 添加身份验证方式（MFA）
+   Zero Trust → Settings → Authentication
+     - Email：默认已启用（邮箱验证码，One-time PIN）
+     - TOTP：按需添加（认证器 App，如 Google Authenticator / Authy）
+
+③ 配置登录策略
+   Policy → Allow
+     Include: Everyone（或限定你的邮箱域名）
+     Require: 勾选 One-time PIN 和/或 TOTP
 ```
+
+**MFA 两种方式怎么选：**
+
+- **邮箱 One-time PIN（推荐）**：零配置、不用扫码不用装 App，每次登录邮箱收验证码。个人自用最顺。
+- **TOTP 认证器**：在策略里 Require 勾选 TOTP 后，手机**第一次打开 `https://dsh.example.com` 时**，Cloudflare 的登录页会显示一个**二维码**，用 Google Authenticator / Authy 扫码即可把密钥导入认证器，之后每次登录输 6 位动态码。
+
+> ⚠️ 两种二维码别搞混：**插件设置页里的二维码是打开 DSH 的链接**；**MFA 密钥二维码由 Cloudflare 在其登录页生成**（首次绑定认证器时出现）。两者不是一回事——MFA 密钥绑定流程在 Cloudflare 侧完成，插件不参与、也拿不到。
 
 配好后回 dsh-pocket 设置页，把固定域名区块的 **「Cloudflare Access」开关打开**：
 
