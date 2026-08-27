@@ -52,7 +52,12 @@ var POCKET_ENDPOINTS = Object.freeze({
   lanAuthSetEnabled: "lanAuth.setEnabled",
   lanSetOverride: "lan.setOverride",
   lanSetEnabled: "lan.setEnabled",
-  pinSetCustom: "pin.setCustom"
+  pinSetCustom: "pin.setCustom",
+  fixedSetHostname: "fixed.setHostname",
+  fixedSetAccess: "fixed.setAccess",
+  fixedSetPinAlways: "fixed.setPinAlways",
+  fixedLogin: "fixed.login",
+  fixedSetup: "fixed.setup"
 });
 function compareVersions(a, b) {
   const pa = String(a).replace(/^[vV]/, "").split(".");
@@ -92,10 +97,14 @@ function redactStatus(s) {
     lanCandidates: Array.isArray(s?.lanCandidates) ? s.lanCandidates : [],
     lanIpOverride: s?.lanIpOverride ?? "",
     tunnelRunning: s?.tunnelRunning === true,
+    tunnelMode: s?.tunnelMode ?? null,
     tunnelUrl: s?.tunnelUrl ?? null,
     tunnelQr: s?.tunnelQr ?? null,
     tunnelState: s?.tunnelState ?? { phase: "idle" },
-    dshPort: s?.dshPort ?? null
+    dshPort: s?.dshPort ?? null,
+    // 固定域名（命名隧道）状态与登录进程
+    fixed: s?.fixed ?? { hostname: "", accessEnabled: false, pinAlways: false, setup: { cert: false, tunnel: false, dns: false } },
+    fixedLogin: s?.fixedLogin ?? null
   };
 }
 
@@ -1405,7 +1414,43 @@ var zh2 = {
   "slowHint": " \u2014 \u6709\u70B9\u4E45\uFF1F\u68C0\u67E5\u662F\u5426\u5F00\u7740\u4EE3\u7406/VPN\uFF08Clash TUN \u7B49\uFF09",
   "error": "\u274C \u5F00\u542F\u5931\u8D25\uFF1A{detail}\uFF08\u53EF\u91CD\u8BD5\uFF1B\u82E5\u662F\u4EE3\u7406/VPN \u95EE\u9898\u89C1 README \u6392\u969C\uFF09",
   "unknownError": "\u672A\u77E5\u9519\u8BEF",
-  "feedback": "\u6709\u95EE\u9898\uFF1F\u6B22\u8FCE\u5230 GitHub Issues \u53CD\u9988 \u{1F64F}"
+  "feedback": "\u6709\u95EE\u9898\uFF1F\u6B22\u8FCE\u5230 GitHub Issues \u53CD\u9988 \u{1F64F}",
+  // ---- 公网区块：快速隧道 / 固定域名 两个子块 ----
+  "quickTitle": "\u5FEB\u901F\u96A7\u9053\uFF08\u4E34\u65F6\u5730\u5740 \xB7 \u65E0\u9700\u8D26\u53F7\uFF09",
+  "quickHint": "URL \u6BCF\u6B21\u91CD\u542F\u6362\u65B0\uFF0C\u624B\u673A\u4EFB\u4F55\u7F51\u7EDC\u626B\u7801\u5373\u7528",
+  "fixedTitle": "\u{1F517} \u56FA\u5B9A\u57DF\u540D\uFF08\u9700 Cloudflare \u6258\u7BA1\u57DF\u540D \xB7 \u63A8\u8350\u914D\u5408 Access\uFF09",
+  "fixedSubtitle": "URL \u56FA\u5B9A\u4E0D\u53D8\uFF1B\u5EFA\u8BAE\u5F00\u542F Cloudflare Access \u505A\u8FB9\u7F18 MFA \u8BA4\u8BC1\uFF0C\u4EE3\u66FF/\u52A0\u5F3A 8 \u4F4D\u5BC6\u7801",
+  "fixedHostnameLabel": "\u57DF\u540D",
+  "fixedHostnamePlaceholder": "\u5982 dsh.example.com",
+  "fixedSave": "\u4FDD\u5B58",
+  "fixedSaved": "\u2713 \u5DF2\u4FDD\u5B58\uFF1A{hostname}\uFF08\u6539\u57DF\u540D\u9700\u91CD\u65B0\u300C\u521D\u59CB\u5316\u96A7\u9053\u4E0E DNS\u300D\uFF09",
+  "fixedSetupWizard": "\u521D\u59CB\u5316\u5411\u5BFC",
+  "fixedStep1": "\u2460 \u767B\u5F55 Cloudflare \u6388\u6743",
+  "fixedStep1Done": "\u2713 \u5DF2\u6388\u6743",
+  "fixedLoginBtn": "\u767B\u5F55\u6388\u6743",
+  "fixedLoginHint": "\u6D4F\u89C8\u5668\u5DF2\u6253\u5F00\uFF08\u6216\u70B9\u4E0B\u65B9\u94FE\u63A5\uFF09\uFF0C\u5728 Cloudflare \u9875\u9762\u5B8C\u6210\u6388\u6743\u540E\u81EA\u52A8\u8FDB\u5165\u4E0B\u4E00\u6B65",
+  "fixedOpenUrl": "\u6253\u5F00\u6388\u6743\u94FE\u63A5",
+  "fixedStep2": "\u2461 \u521D\u59CB\u5316\u96A7\u9053\u4E0E DNS",
+  "fixedStep2Done": "\u2713 \u96A7\u9053 + DNS \u5DF2\u5C31\u7EEA",
+  "fixedSetupBtn": "\u521D\u59CB\u5316\u96A7\u9053\u4E0E DNS",
+  "fixedSetupBusy": "\u521D\u59CB\u5316\u4E2D\uFF08\u5EFA\u96A7\u9053 + \u7ED1 DNS\uFF0C\u7EA6 10-30 \u79D2\uFF09\u2026",
+  "fixedNeedLoginFirst": "\u8BF7\u5148\u5B8C\u6210\u7B2C \u2460 \u6B65\u767B\u5F55\u6388\u6743",
+  "fixedNeedHostname": "\u8BF7\u5148\u586B\u5199\u5E76\u4FDD\u5B58\u57DF\u540D",
+  "fixedNeedSetup": "\u8BF7\u5148\u5B8C\u6210\u7B2C \u2461 \u6B65\u300C\u521D\u59CB\u5316\u96A7\u9053\u4E0E DNS\u300D",
+  "fixedStep3": "\u2462 \u5F00\u542F\u56FA\u5B9A\u57DF\u540D",
+  "fixedEnableBtn": "\u5F00\u542F\u56FA\u5B9A\u57DF\u540D",
+  "fixedRunning": "\u2705 \u56FA\u5B9A\u57DF\u540D\u8FD0\u884C\u4E2D",
+  "fixedStop": "\u5173\u95ED\u56FA\u5B9A\u57DF\u540D",
+  "fixedWanPin": "\u{1F510} \u8BBF\u95EE\u5BC6\u7801\uFF1A{pin}\uFF08\u56FA\u5B9A\u57DF\u540D\uFF1B\u624B\u673A\u6253\u5F00\u9700\u8F93\u5165\uFF09",
+  "fixedAccessTitle": "Cloudflare Access\uFF08\u63A8\u8350 \xB7 \u8FB9\u7F18 MFA\uFF09",
+  "fixedAccessHintOn": "\u5DF2\u4E3A\u8BE5\u57DF\u540D\u542F\u7528 Access\uFF1A\u672A\u8BA4\u8BC1\u8BF7\u6C42\u5728 Cloudflare \u8FB9\u7F18\u5C31\u88AB\u62E6\u622A\uFF0C\u624B\u673A\u9700\u901A\u8FC7 MFA\uFF08\u90AE\u7BB1\u9A8C\u8BC1\u7801/\u786C\u4EF6\u5BC6\u94A5\u7B49\uFF09",
+  "fixedAccessHintOff": "\u672A\u542F\u7528 Access\uFF1A\u56FA\u5B9A\u57DF\u540D\u5F3A\u5236\u8981\u6C42 8 \u4F4D PIN\uFF08\u5426\u5219 DSH \u76F4\u63A5\u66B4\u9732\u516C\u7F51\uFF09",
+  "fixedAccessDocs": "Access \u914D\u7F6E\u6559\u7A0B",
+  "fixedPinTitle": "\u989D\u5916\u8981\u6C42 8 \u4F4D PIN",
+  "fixedPinHintOn": "Access \u4E4B\u5916\u518D\u52A0\u4E00\u9053 8 \u4F4D\u5BC6\u7801\uFF08\u7EB5\u6DF1\u9632\u5FA1\uFF09",
+  "fixedPinHintOff": "\u7531 Cloudflare Access \u8D1F\u8D23\u8BA4\u8BC1\uFF08\u63A8\u8350\uFF0C\u4F53\u9A8C\u6700\u987A\uFF09",
+  "fixedPinForced": "\u{1F512} \u672A\u542F\u7528 Access\uFF0C\u56FA\u5B9A\u57DF\u540D\u5FC5\u987B\u4F7F\u7528 8 \u4F4D\u8BBF\u95EE\u5BC6\u7801",
+  "fixedLoginErr": "\u767B\u5F55\u5931\u8D25\uFF1A{err}"
 };
 var en2 = {
   "section": "Phone access",
@@ -1474,7 +1519,43 @@ var en2 = {
   "slowHint": " \u2014 taking long? Check for a proxy/VPN (e.g., Clash TUN)",
   "error": "\u274C Failed to enable: {detail} (you can retry; for proxy/VPN issues see the README)",
   "unknownError": "unknown error",
-  "feedback": "\u{1F64F} Questions? Open an issue on GitHub"
+  "feedback": "\u{1F64F} Questions? Open an issue on GitHub",
+  // ---- Public block: quick tunnel / fixed domain ----
+  "quickTitle": "Quick tunnel (temporary \xB7 no account needed)",
+  "quickHint": "The URL changes on every restart; scan from any network",
+  "fixedTitle": "\u{1F517} Fixed domain (needs a Cloudflare-hosted domain \xB7 Access recommended)",
+  "fixedSubtitle": "The URL never changes; enable Cloudflare Access for edge MFA \u2014 it replaces or strengthens the 8-digit PIN",
+  "fixedHostnameLabel": "Hostname",
+  "fixedHostnamePlaceholder": "e.g. dsh.example.com",
+  "fixedSave": "Save",
+  "fixedSaved": '\u2713 Saved: {hostname} (re-run "Initialize tunnel & DNS" after changing it)',
+  "fixedSetupWizard": "Setup wizard",
+  "fixedStep1": "\u2460 Log in to Cloudflare",
+  "fixedStep1Done": "\u2713 Authorized",
+  "fixedLoginBtn": "Log in",
+  "fixedLoginHint": "The browser opened (or use the link below); authorize in Cloudflare and the wizard continues automatically",
+  "fixedOpenUrl": "Open authorization link",
+  "fixedStep2": "\u2461 Initialize tunnel & DNS",
+  "fixedStep2Done": "\u2713 Tunnel + DNS ready",
+  "fixedSetupBtn": "Initialize tunnel & DNS",
+  "fixedSetupBusy": "Initializing (create tunnel + route DNS, ~10-30s)\u2026",
+  "fixedNeedLoginFirst": "Finish step \u2460 (Cloudflare login) first",
+  "fixedNeedHostname": "Set and save a hostname first",
+  "fixedNeedSetup": 'Finish step \u2461 "Initialize tunnel & DNS" first',
+  "fixedStep3": "\u2462 Enable the fixed domain",
+  "fixedEnableBtn": "Enable fixed domain",
+  "fixedRunning": "\u2705 Fixed domain is live",
+  "fixedStop": "Stop fixed domain",
+  "fixedWanPin": "\u{1F510} PIN: {pin} (fixed domain; required on the phone)",
+  "fixedAccessTitle": "Cloudflare Access (recommended \xB7 edge MFA)",
+  "fixedAccessHintOn": "Access is enabled for this hostname: unauthenticated requests are blocked at the Cloudflare edge; the phone signs in with MFA (email code / hardware key, etc.)",
+  "fixedAccessHintOff": "Access is off: the fixed domain requires an 8-digit PIN (otherwise DSH would be exposed directly to the internet)",
+  "fixedAccessDocs": "Access setup guide",
+  "fixedPinTitle": "Also require an 8-digit PIN",
+  "fixedPinHintOn": "An extra PIN on top of Access (defense in depth)",
+  "fixedPinHintOff": "Cloudflare Access handles authentication (recommended, smoothest UX)",
+  "fixedPinForced": "\u{1F512} Access is off \u2014 the fixed domain must use an 8-digit PIN",
+  "fixedLoginErr": "Login failed: {err}"
 };
 
 // client/index.jsx
@@ -1525,6 +1606,7 @@ function PocketSettingsTab({ rpcCall, t }) {
       const s = await call(POCKET_ENDPOINTS.status, {});
       setStatus(s);
       setTunnelState(s.tunnelState ?? null);
+      setFixedHostnameInput((cur) => cur === "" ? s.fixed?.hostname ?? "" : cur);
       if (s.desktop) setIsDesktop(true);
       if (s.restartNotice) {
         setRestartNotice(true);
@@ -1611,6 +1693,7 @@ function PocketSettingsTab({ rpcCall, t }) {
   };
   const [disclaimerOpen, setDisclaimerOpen] = (0, import_react2.useState)(false);
   const [disclaimerChecked, setDisclaimerChecked] = (0, import_react2.useState)(false);
+  const [disclaimerMode, setDisclaimerMode] = (0, import_react2.useState)("quick");
   const doStartTunnel = async () => {
     setBusy(true);
     setError(null);
@@ -1624,18 +1707,86 @@ function PocketSettingsTab({ rpcCall, t }) {
     }
   };
   const startTunnel = () => {
+    setDisclaimerMode("quick");
     setDisclaimerChecked(false);
     setDisclaimerOpen(true);
   };
   const confirmDisclaimer = () => {
     if (!disclaimerChecked) return;
     setDisclaimerOpen(false);
-    doStartTunnel();
+    if (disclaimerMode === "fixed") doStartFixedTunnel();
+    else doStartTunnel();
   };
   const stopTunnel = async () => {
     try {
       setStatus(await call(POCKET_ENDPOINTS.tunnelStop, {}));
     } catch {
+    }
+  };
+  const [fixedHostnameInput, setFixedHostnameInput] = (0, import_react2.useState)("");
+  const [fixedBusy, setFixedBusy] = (0, import_react2.useState)(false);
+  const saveFixedHostname = async () => {
+    setFixedBusy(true);
+    setError(null);
+    try {
+      setStatus(await call(POCKET_ENDPOINTS.fixedSetHostname, { hostname: fixedHostnameInput }));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setFixedBusy(false);
+    }
+  };
+  const runFixedLogin = async () => {
+    setFixedBusy(true);
+    setError(null);
+    try {
+      await call(POCKET_ENDPOINTS.fixedLogin, {});
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setFixedBusy(false);
+    }
+  };
+  const runFixedSetup = async () => {
+    setFixedBusy(true);
+    setError(null);
+    try {
+      setStatus(await call(POCKET_ENDPOINTS.fixedSetup, {}));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setFixedBusy(false);
+    }
+  };
+  const startFixedTunnel = () => {
+    setDisclaimerMode("fixed");
+    setDisclaimerChecked(false);
+    setDisclaimerOpen(true);
+  };
+  const doStartFixedTunnel = async () => {
+    setFixedBusy(true);
+    setError(null);
+    setTunnelState({ phase: "starting", detail: "\u6B63\u5728\u5F00\u542F\u56FA\u5B9A\u57DF\u540D\u2026", startedAt: Date.now() });
+    try {
+      setStatus(await call(POCKET_ENDPOINTS.tunnelStart, { disclaimer: true, mode: "fixed" }));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setFixedBusy(false);
+    }
+  };
+  const setFixedAccess = async (on) => {
+    try {
+      setStatus(await call(POCKET_ENDPOINTS.fixedSetAccess, { on }));
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+  const setFixedPinAlways = async (on) => {
+    try {
+      setStatus(await call(POCKET_ENDPOINTS.fixedSetPinAlways, { on }));
+    } catch (err) {
+      setError(err.message);
     }
   };
   const refreshLanPin = async () => {
@@ -1716,6 +1867,17 @@ function PocketSettingsTab({ rpcCall, t }) {
   const tunnelStarting = ["downloading", "starting", "registering"].includes(tunnelPhase);
   const tunnelStateDetail = tunnelState?.detail ?? "";
   const tunnelStateStarted = tunnelState?.startedAt ?? null;
+  const tunnelMode = status?.tunnelMode ?? null;
+  const fixedInfo = status?.fixed ?? { hostname: "", accessEnabled: false, pinAlways: false, setup: { cert: false, tunnel: false, dns: false } };
+  const fHostname = fixedInfo.hostname ?? "";
+  const fCert = fixedInfo.setup?.cert === true;
+  const fTunnel = fixedInfo.setup?.tunnel === true;
+  const fDns = fixedInfo.setup?.dns === true;
+  const fAccess = fixedInfo.accessEnabled === true;
+  const fPinAlways = fixedInfo.pinAlways === true;
+  const fixedRunning = tunnelMode === "fixed" && Boolean(tunnelUrl);
+  const quickRunning = tunnelMode !== "fixed" && Boolean(tunnelUrl);
+  const fixedPinRequired = !fAccess || fPinAlways;
   return (0, import_react2.createElement)(
     "div",
     { style: styles.card },
@@ -1847,33 +2009,173 @@ function PocketSettingsTab({ rpcCall, t }) {
       "div",
       { style: styles.block },
       (0, import_react2.createElement)("div", { style: { fontWeight: 600, fontSize: 13 } }, t("wanTitle")),
-      tunnelUrl ? (0, import_react2.createElement)(
+      // 共享的隧道进度（两种模式共用 tunnelState；谁在跑/在开就显示谁的进度）
+      tunnelStarting ? (0, import_react2.createElement)(
         "div",
-        null,
-        (0, import_react2.createElement)("img", { src: status.tunnelQr, alt: "Tunnel QR", style: styles.qr }),
-        (0, import_react2.createElement)("div", { style: styles.code }, tunnelUrl),
-        (0, import_react2.createElement)("div", { style: styles.muted }, t("wanHint")),
-        status.accessToken ? customPin?.which === "public" ? customPinRow("public") : (0, import_react2.createElement)(
-          "div",
-          { style: { marginTop: 6, fontSize: 12, color: "var(--dsw-alias-label-secondary,#6b7280)", lineHeight: 1.5 } },
-          fmt(t, status?.publicPinCustom ? "wanPinCustom" : "wanPin", { pin: status.accessToken }),
-          customBtn("public"),
-          status?.publicPinCustom ? (0, import_react2.createElement)("div", { style: { marginTop: 2, fontSize: 11, color: "var(--dsw-alias-state-warn-primary,#b45309)" } }, t("pinCustomHint")) : null
-        ) : null,
-        (0, import_react2.createElement)("button", { style: styles.btn, onClick: stopTunnel }, t("stopTunnel"))
-      ) : (0, import_react2.createElement)(
+        { style: { marginTop: 6, fontSize: 12, color: "var(--dsw-alias-label-secondary,#6b7280)" } },
+        tunnelPhase === "downloading" ? fmt(t, "downloading", { s: elapsed(tunnelStateStarted) }) : fmt(t, "connecting", { s: elapsed(tunnelStateStarted), suffix: elapsed(tunnelStateStarted) > 30 ? t("slowHint") : "" })
+      ) : tunnelPhase === "error" ? (0, import_react2.createElement)(
         "div",
-        null,
-        (0, import_react2.createElement)("button", { style: { ...styles.primary, margin: "8px 0" }, onClick: startTunnel, disabled: busy || tunnelStarting }, busy ? t("opening") : t("enable")),
-        tunnelStarting ? (0, import_react2.createElement)(
+        { style: { marginTop: 6, fontSize: 12, color: "var(--dsw-alias-state-error-primary,#dc2626)" } },
+        fmt(t, "error", { detail: tunnelStateDetail || t("unknownError") })
+      ) : null,
+      // ---- 快速隧道（临时地址，无需账号）----
+      (0, import_react2.createElement)(
+        "div",
+        { style: { ...styles.block, borderTop: "1px dashed var(--dsw-alias-border-l2,#e5e7eb)", marginTop: 10, paddingTop: 10 } },
+        (0, import_react2.createElement)("div", { style: { fontSize: 12, fontWeight: 600, color: "var(--dsw-alias-label-secondary,#6b7280)", marginBottom: 4 } }, t("quickTitle")),
+        quickRunning ? (0, import_react2.createElement)(
           "div",
-          { style: { marginTop: 4, fontSize: 12, color: "var(--dsw-alias-label-secondary,#6b7280)" } },
-          tunnelPhase === "downloading" ? fmt(t, "downloading", { s: elapsed(tunnelStateStarted) }) : fmt(t, "connecting", { s: elapsed(tunnelStateStarted), suffix: elapsed(tunnelStateStarted) > 30 ? t("slowHint") : "" })
-        ) : tunnelPhase === "error" ? (0, import_react2.createElement)(
+          null,
+          (0, import_react2.createElement)("img", { src: status.tunnelQr, alt: "Tunnel QR", style: styles.qr }),
+          (0, import_react2.createElement)("div", { style: styles.code }, tunnelUrl),
+          (0, import_react2.createElement)("div", { style: styles.muted }, t("quickHint")),
+          status.accessToken ? customPin?.which === "public" ? customPinRow("public") : (0, import_react2.createElement)(
+            "div",
+            { style: { marginTop: 6, fontSize: 12, color: "var(--dsw-alias-label-secondary,#6b7280)", lineHeight: 1.5 } },
+            fmt(t, status?.publicPinCustom ? "wanPinCustom" : "wanPin", { pin: status.accessToken }),
+            customBtn("public"),
+            status?.publicPinCustom ? (0, import_react2.createElement)("div", { style: { marginTop: 2, fontSize: 11, color: "var(--dsw-alias-state-warn-primary,#b45309)" } }, t("pinCustomHint")) : null
+          ) : null,
+          (0, import_react2.createElement)("button", { style: styles.btn, onClick: stopTunnel }, t("stopTunnel"))
+        ) : (0, import_react2.createElement)(
           "div",
-          { style: { marginTop: 4, fontSize: 12, color: "var(--dsw-alias-state-error-primary,#dc2626)" } },
-          fmt(t, "error", { detail: tunnelStateDetail || t("unknownError") })
-        ) : null
+          null,
+          (0, import_react2.createElement)("button", { style: { ...styles.primary, margin: "8px 0" }, onClick: startTunnel, disabled: busy }, busy ? t("opening") : t("enable")),
+          (0, import_react2.createElement)("div", { style: styles.muted }, t("quickHint"))
+        )
+      ),
+      // ---- 固定域名（命名隧道 + Cloudflare Access）----
+      (0, import_react2.createElement)(
+        "div",
+        { style: { ...styles.block, borderTop: "1px dashed var(--dsw-alias-border-l2,#e5e7eb)", marginTop: 10, paddingTop: 10 } },
+        (0, import_react2.createElement)("div", { style: { fontSize: 12, fontWeight: 600, color: "var(--dsw-alias-label-secondary,#6b7280)" } }, t("fixedTitle")),
+        (0, import_react2.createElement)("div", { style: { ...styles.muted, marginTop: 2 } }, t("fixedSubtitle")),
+        // 域名输入/保存
+        (0, import_react2.createElement)(
+          "div",
+          { style: { display: "flex", alignItems: "center", gap: 6, marginTop: 8 } },
+          (0, import_react2.createElement)("span", { style: { fontSize: 12, color: "var(--dsw-alias-label-secondary,#6b7280)" } }, t("fixedHostnameLabel")),
+          (0, import_react2.createElement)("input", {
+            style: { flex: 1, minWidth: 0, font: "inherit", height: 30, padding: "0 8px", borderRadius: 8, border: "1px solid var(--dsw-alias-border-l2,#d1d5db)", background: "var(--dsw-alias-bg-layer-1,#fff)", color: "var(--dsw-alias-label-primary,inherit)", outline: "none" },
+            placeholder: t("fixedHostnamePlaceholder"),
+            value: fixedHostnameInput,
+            onChange: (e) => setFixedHostnameInput(e.target.value),
+            onKeyDown: (e) => {
+              if (e.key === "Enter") saveFixedHostname();
+            }
+          }),
+          (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 30, padding: "0 12px", fontSize: 12 }, onClick: saveFixedHostname, disabled: fixedBusy }, t("fixedSave"))
+        ),
+        fHostname ? (0, import_react2.createElement)("div", { style: { marginTop: 4, fontSize: 11, color: "var(--dsw-alias-state-success-primary,#15803d)" } }, fmt(t, "fixedSaved", { hostname: fHostname })) : null,
+        // 初始化向导：① 登录 ② 建隧道+绑 DNS ③ 开启
+        (0, import_react2.createElement)("div", { style: { ...styles.muted, marginTop: 10, fontWeight: 600 } }, t("fixedSetupWizard")),
+        (0, import_react2.createElement)(
+          "div",
+          { style: { marginTop: 6, fontSize: 12, color: "var(--dsw-alias-label-secondary,#6b7280)", lineHeight: 1.6 } },
+          // ① 登录
+          (0, import_react2.createElement)(
+            "div",
+            { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } },
+            (0, import_react2.createElement)("span", null, fCert ? `\u2705 ${t("fixedStep1Done")}` : t("fixedStep1")),
+            fCert ? null : (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 26, padding: "0 10px", fontSize: 12 }, onClick: runFixedLogin, disabled: fixedBusy }, t("fixedLoginBtn"))
+          ),
+          // 登录进行中/授权链接
+          !fCert && status?.fixedLogin?.url ? (0, import_react2.createElement)(
+            "div",
+            { style: { marginTop: 4, fontSize: 11, color: "var(--dsw-alias-state-warn-primary,#b45309)", lineHeight: 1.5 } },
+            t("fixedLoginHint"),
+            (0, import_react2.createElement)(
+              "div",
+              null,
+              (0, import_react2.createElement)("a", { href: status.fixedLogin.url, target: "_blank", rel: "noreferrer", style: { color: "var(--dsw-alias-brand-primary,#4f6ef7)", textDecoration: "underline" } }, t("fixedOpenUrl"))
+            )
+          ) : null,
+          // ② 初始化
+          (0, import_react2.createElement)(
+            "div",
+            { style: { display: "flex", alignItems: "center", gap: 8, marginTop: 4, flexWrap: "wrap" } },
+            (0, import_react2.createElement)("span", null, fTunnel && fDns ? `\u2705 ${t("fixedStep2Done")}` : t("fixedStep2")),
+            !(fTunnel && fDns) ? (0, import_react2.createElement)("button", {
+              style: { ...styles.btn, height: 26, padding: "0 10px", fontSize: 12 },
+              onClick: runFixedSetup,
+              disabled: fixedBusy || !fCert || !fHostname,
+              title: !fCert ? t("fixedNeedLoginFirst") : !fHostname ? t("fixedNeedHostname") : ""
+            }, fixedBusy ? t("fixedSetupBusy") : t("fixedSetupBtn")) : null
+          ),
+          // ③ 开启/运行
+          fixedRunning ? (0, import_react2.createElement)(
+            "div",
+            { style: { marginTop: 8 } },
+            (0, import_react2.createElement)("div", { style: { fontSize: 12, fontWeight: 600, color: "var(--dsw-alias-state-success-primary,#15803d)" } }, t("fixedRunning")),
+            (0, import_react2.createElement)("img", { src: status.tunnelQr, alt: "Fixed QR", style: styles.qr }),
+            (0, import_react2.createElement)("div", { style: styles.code }, tunnelUrl),
+            fixedPinRequired && status.accessToken ? customPin?.which === "public" ? customPinRow("public") : (0, import_react2.createElement)(
+              "div",
+              { style: { marginTop: 6, fontSize: 12, color: "var(--dsw-alias-label-secondary,#6b7280)", lineHeight: 1.5 } },
+              fmt(t, status?.publicPinCustom ? "wanPinCustom" : "fixedWanPin", { pin: status.accessToken }),
+              customBtn("public"),
+              status?.publicPinCustom ? (0, import_react2.createElement)("div", { style: { marginTop: 2, fontSize: 11, color: "var(--dsw-alias-state-warn-primary,#b45309)" } }, t("pinCustomHint")) : null
+            ) : null,
+            (0, import_react2.createElement)("button", { style: styles.btn, onClick: stopTunnel }, t("fixedStop"))
+          ) : (0, import_react2.createElement)(
+            "div",
+            { style: { marginTop: 6 } },
+            (0, import_react2.createElement)("button", {
+              style: { ...styles.primary },
+              onClick: startFixedTunnel,
+              disabled: fixedBusy || !fTunnel || !fDns || !fHostname
+            }, t("fixedEnableBtn")),
+            (!fTunnel || !fDns) && fHostname ? (0, import_react2.createElement)(
+              "div",
+              { style: { marginTop: 4, fontSize: 11, color: "var(--dsw-alias-state-warn-primary,#b45309)" } },
+              !fCert ? t("fixedNeedLoginFirst") : t("fixedNeedSetup")
+            ) : null
+          )
+        ),
+        // Cloudflare Access 开关（推荐）
+        (0, import_react2.createElement)(
+          "div",
+          { style: { borderTop: "1px solid var(--dsw-alias-border-l2,#e5e7eb)", marginTop: 10, paddingTop: 8 } },
+          (0, import_react2.createElement)(
+            "div",
+            { style: { display: "flex", alignItems: "center", gap: 8 } },
+            (0, import_react2.createElement)("span", { style: { fontSize: 12, color: "var(--dsw-alias-label-secondary,#6b7280)" } }, t("fixedAccessTitle")),
+            (0, import_react2.createElement)("button", {
+              style: { ...styles.btn, height: 28, padding: "0 12px", fontSize: 12, fontWeight: fAccess ? 600 : 400, background: fAccess ? "var(--dsw-alias-button-primary-fill, var(--dsw-alias-brand-primary,#4f6ef7))" : "var(--dsw-alias-bg-layer-1,#fff)", color: fAccess ? "var(--dsw-alias-label-primary-foreground, #fff)" : "var(--dsw-alias-label-primary,inherit)" },
+              onClick: () => setFixedAccess(true)
+            }, t("on")),
+            (0, import_react2.createElement)("button", {
+              style: { ...styles.btn, height: 28, padding: "0 12px", fontSize: 12, fontWeight: !fAccess ? 600 : 400, background: !fAccess ? "var(--dsw-alias-state-error-primary,#dc2626)" : "var(--dsw-alias-bg-layer-1,#fff)", color: !fAccess ? "#fff" : "var(--dsw-alias-label-primary,inherit)" },
+              onClick: () => setFixedAccess(false)
+            }, t("off")),
+            (0, import_react2.createElement)("a", { href: "https://developers.cloudflare.com/cloudflare-one/policies/access/", target: "_blank", rel: "noreferrer", style: { fontSize: 11, color: "var(--dsw-alias-brand-primary,#4f6ef7)", textDecoration: "underline", marginLeft: "auto" } }, t("fixedAccessDocs"))
+          ),
+          (0, import_react2.createElement)(
+            "div",
+            { style: { marginTop: 4, fontSize: 11, lineHeight: 1.5, color: fAccess ? "var(--dsw-alias-label-tertiary,#8b93a1)" : "var(--dsw-alias-state-warn-primary,#b45309)" } },
+            fAccess ? t("fixedAccessHintOn") : t("fixedAccessHintOff")
+          ),
+          // PIN 策略：Access 开 → 可选额外 PIN；Access 关 → 强制 PIN（提示）
+          fAccess ? (0, import_react2.createElement)(
+            "div",
+            { style: { marginTop: 8 } },
+            (0, import_react2.createElement)(
+              "div",
+              { style: { display: "flex", alignItems: "center", gap: 8 } },
+              (0, import_react2.createElement)("span", { style: { fontSize: 12, color: "var(--dsw-alias-label-secondary,#6b7280)" } }, t("fixedPinTitle")),
+              (0, import_react2.createElement)("button", {
+                style: { ...styles.btn, height: 28, padding: "0 12px", fontSize: 12, fontWeight: fPinAlways ? 600 : 400, background: fPinAlways ? "var(--dsw-alias-button-primary-fill, var(--dsw-alias-brand-primary,#4f6ef7))" : "var(--dsw-alias-bg-layer-1,#fff)", color: fPinAlways ? "var(--dsw-alias-label-primary-foreground, #fff)" : "var(--dsw-alias-label-primary,inherit)" },
+                onClick: () => setFixedPinAlways(true)
+              }, t("on")),
+              (0, import_react2.createElement)("button", {
+                style: { ...styles.btn, height: 28, padding: "0 12px", fontSize: 12, fontWeight: !fPinAlways ? 600 : 400, background: !fPinAlways ? "var(--dsw-alias-bg-layer-1,#fff)" : "var(--dsw-alias-bg-layer-1,#fff)", color: "var(--dsw-alias-label-primary,inherit)" },
+                onClick: () => setFixedPinAlways(false)
+              }, t("off"))
+            ),
+            (0, import_react2.createElement)("div", { style: { marginTop: 4, fontSize: 11, color: "var(--dsw-alias-label-tertiary,#8b93a1)" } }, fPinAlways ? t("fixedPinHintOn") : t("fixedPinHintOff"))
+          ) : (0, import_react2.createElement)("div", { style: { marginTop: 6, fontSize: 11, color: "var(--dsw-alias-state-warn-primary,#b45309)" } }, t("fixedPinForced"))
+        )
       )
     ),
     error ? (0, import_react2.createElement)("div", { style: { color: "var(--dsw-alias-state-error-primary,#dc2626)", fontSize: 12, marginTop: 8 } }, `\u274C ${error}`) : null,

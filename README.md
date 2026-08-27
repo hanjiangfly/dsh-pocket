@@ -44,6 +44,7 @@ DSH Pocket 就是干这个的：**装上它，手机扫个码，就能实时看�
 | 📶 局域网扫码 | 装好即用：设置 → 手机访问，打开就有局域网二维码，手机连同一 WiFi 扫码即开（自动识别本机局域网 IP，**WSL 环境自动取 Windows 物理网卡 IP**） |
 | 🚪 局域网开关 | 设置页可**一键关闭/开启局域网访问**（切换时弹窗提醒）：关闭后局域网二维码/链接立即失效，仅公网可用 |
 | 🌐 公网扫码（人在外面） | 点「开启公网访问」→ cloudflared 隧道 → 出公网二维码，4G/任何网络都能访问 |
+| 🌐 固定域名（可选） | 绑定自己的 **Cloudflare 托管域名**，公网地址**固定不变**（命名隧道）；**推荐配合 Cloudflare Access + MFA**（边缘认证：邮箱验证码/硬件密钥等）；未启用 Access 时强制 8 位 PIN |
 | 🔐 访问密码 | 公网链接需输入 **8 位数字密码**（默认每次开启公网自动换新；**可自定义固定密码**——自定义后不再换新）；局域网有独立 **8 位数字密码**（默认开启，设置页可**一键关闭**——关闭后局域网扫码直连） |
 | 🔑 自定义密码 | 公网/局域网密码都可在设置页**设成自己固定的 8 位数字**（自定义后公网不再自动换新） |
 | 🧘 会话保持 | 手机输一次密码后**长期免输**（登录状态绑定电脑上的 dsh web 进程：只要它不重启，手机不用再输；**dsh web 重启/更新后需重新输入一次**） |
@@ -95,11 +96,47 @@ npx @deepseek-ai/dsh web
 
 > 更新到新版本：`dsh plugin --profile web update dsh-pocket --latest -w`（跨大版本时 `--latest` 是必须的，`^0.x` 范围不会自动升到 1.x）。
 
+### 公网（固定域名，可选 · 推荐配合 Cloudflare Access + MFA）
+
+快速隧道的 URL 每次重启会变，适合临时用。想要**固定不变**的公网地址（比如收藏到手机桌面、配到其他工具里），可以用固定域名模式——前提是你有一个**托管在 Cloudflare 的域名**（DNS 由 Cloudflare 接管）。
+
+**设置页三步向导**（设置 → 手机访问 → 公网 → 固定域名）：
+
+1. **填域名并保存**：如 `dsh.example.com`（子域名，需要先在你的域名控制台把它托管到 Cloudflare）
+2. **登录授权**：点「登录授权」→ 浏览器自动打开 Cloudflare 授权页，完成一次即可（生成 `~/.cloudflared/cert.pem`）
+3. **初始化隧道与 DNS**：自动创建命名隧道并把域名 CNAME 到它（幂等，重复点也没关系）
+4. **开启固定域名**：扫码或直接打开 `https://dsh.example.com`
+
+**⚠️ 固定域名 URL 不再轮换，认证必须跟上。** 因为地址固定，等于把 DSH（能执行代码）长期放在一个公开入口上——**强烈建议配合 [Cloudflare Access](https://developers.cloudflare.com/cloudflare-one/policies/access/) + MFA**：
+
+- **Access 在 Cloudflare 边缘认证**：未认证请求根本到不了你的电脑，手机打开会先过 Access 登录页
+- **MFA 强度远高于 8 位 PIN**：邮箱验证码（One-time PIN）/ TOTP / WebAuthn 硬件密钥都行，还能限定允许的邮箱域名
+- **免费**：Zero Trust 免费计划支持最多 50 用户，个人自用足够
+
+配置步骤（在 Cloudflare Dashboard，约 5 分钟）：
+
+```text
+Zero Trust → Access → Applications → Add an application → Self-hosted
+  Application domain: dsh.example.com
+  Policy: Allow
+    Include: Everyone（或限定你的邮箱域名）
+    Require:  → One-time PIN（邮箱验证码，最简单的 MFA）
+              （或 TOTP / WebAuthn 硬件密钥，按需选）
+```
+
+配好后回 dsh-pocket 设置页，把固定域名区块的 **「Cloudflare Access」开关打开**：
+
+- **开**（推荐）：手机访问过 Access 的 MFA 后直接进入 DSH，**不再输 8 位 PIN**；可另开「额外要求 8 位 PIN」做纵深防御（双因素）
+- **关**：固定域名**强制要求 8 位 PIN**（地址固定、没有别的认证层时不能裸奔）；此模式 PIN 每次开启不轮换（URL 不换，轮换密码意义有限，靠强密码/用完即关）
+
+> 固定域名与快速隧道同一时刻只跑一条：开固定域名会自动停掉快速隧道，反之亦然。
+
 ## ⚠️ 安全（必读）
 
 - **DSH 能执行你电脑上的代码**。**局域网**二维码/URL 配上独立 **8 位数字密码**才是钥匙（密码**默认开启**，可关——关闭后局域网扫码直连，仅同一网络设备可访问），**请勿把局域网二维码、URL 或密码发给别人**
 - **开启公网访问前必须阅读并勾选免责声明**（每次开启都会弹框；服务端强制校验，无法绕过）：公网 = 把能执行代码的 DSH 暴露到互联网，请使用强密码、用完即关、涉密网络勿用
 - **公网**有 **8 位数字密码**保护：链接随机分配、默认每次开启换新密码、旧链接立即作废——泄露了也进不来，改密码/重开即可作废；**自定义密码后不再自动换新**（你设的值即稳定密码）
+- **固定域名**（可选）URL 固定不轮换，**推荐配合 Cloudflare Access + MFA**（边缘认证）；未启用 Access 时强制 8 位 PIN（见上方「固定域名」小节）
 - 手机登录状态与电脑上的 dsh web 进程绑定：**电脑 dsh web 一直开着就不用重复输入；重启/更新后需重新输入一次**
 - **登录限速**（防暴力破解）：同一 IP 连续输错 **5 次**锁定 **60 秒**；全局失败超阈值时短暂全锁（防换 IP 分布式扫描）；输对密码后计数清零
 - 公网 URL 由 cloudflared 随机分配，**每次重启会变化**（旧链接自动失效，相当于天然轮换）
@@ -121,6 +158,7 @@ npx @deepseek-ai/dsh web
 | `listen EADDRINUSE ... :3081` | 旧 dsh-pocket 进程还占着端口：macOS/Linux `lsof -ti :3081 \| xargs kill -9`；Windows `netstat -ano \| findstr :3081`（找 LISTENING 的 PID）→ `taskkill /PID <PID> /F`，后重试 |
 | 版本停在 0.x 升不上去 | `^0.x` 范围不允许升到 1.x：更新用 `--latest`（`dsh plugin --profile web update dsh-pocket --latest -w`） |
 | 公网 `error 1033` | 见下方「公网隧道常见问题」——多半是本机代理/VPN（Clash 等 TUN 模式）掐断了隧道 |
+| 固定域名打不开 / 报错 | ① 确认域名已在 Cloudflare 托管且「初始化隧道与 DNS」成功（设置页 ✓）；② 代理/VPN TUN 模式掐隧道 → 同上排障；③ 确认 Cloudflare Access 策略没拦住你的设备（临时关 Access 或加策略测试） |
 | 点「重启 dsh web」后页面提示进程在后台运行 | 自重启的新进程是 detached 后台进程（不挂终端），是页内更新的标准做法；停止它：macOS/Linux `lsof -ti :3080 \| xargs kill -9`；Windows `netstat -ano \| findstr :3080` → `taskkill /PID <PID> /F`（日志在 `$DSH_HOME` 下 `dsh-pocket-restart-*.log`） |
 
 ## ⚠️ 公网隧道常见问题（必读）
@@ -165,11 +203,11 @@ npx @deepseek-ai/dsh web
 
 | 文件 | 说明 |
 |---|---|
-| `lib/index.js` | 插件入口：自动起代理 + 注册 RPC + 访问密码管理（公网 8 位每次开启变新；局域网独立 8 位可手动刷新/开关）+ 局域网访问总开关 + 桌面端环境适配 |
-| `lib/settings.mjs` | 设置持久化：局域网访问总开关（默认开启）+ 局域网密码开关（默认开启）存 `$DSH_HOME/dsh-pocket/settings.json` |
-| `lib/service.mjs` | 服务：代理生命周期（端口自适应）、公网隧道（自动恢复）、状态快照（含二维码） |
-| `lib/proxy.mjs` | 改头反向代理：Host/Origin → loopback，HTTP + WebSocket 透传 + polyfill 注入 + gzip/brotli 压缩 + 按 Host 区分的访问令牌认证（公网必验；局域网按开关）+ 局域网关闭时拦截局域网 Host |
-| `lib/tunnel.mjs` | cloudflared：多镜像源下载（清华优先）/自适应多线程/启动/解析公网 URL（HTTP/2） |
+| `lib/index.js` | 插件入口：自动起代理 + 注册 RPC + 访问密码管理（公网 8 位每次开启变新；局域网独立 8 位可手动刷新/开关）+ 局域网访问总开关 + 固定域名认证策略（Access 开关决定是否免 PIN）+ 桌面端环境适配 |
+| `lib/settings.mjs` | 设置持久化：局域网访问总开关（默认开启）+ 局域网密码开关（默认开启）+ 固定域名配置（hostname/隧道 ID/DNS 绑定标记/Access 开关/额外 PIN 开关）存 `$DSH_HOME/dsh-pocket/settings.json` |
+| `lib/service.mjs` | 服务：代理生命周期（端口自适应）、公网隧道（快速/固定两种模式、自动恢复、登录进程管理）、状态快照（含二维码） |
+| `lib/proxy.mjs` | 改头反向代理：Host/Origin → loopback，HTTP + WebSocket 透传 + polyfill 注入 + gzip/brotli 压缩 + 按 Host 区分的访问令牌认证（快速隧道必验；固定域名按 Access 开关；局域网按开关）+ 局域网关闭时拦截局域网 Host |
+| `lib/tunnel.mjs` | cloudflared：多镜像源下载（清华优先）/自适应多线程/启动快速隧道（解析随机 URL）/命名隧道（login 授权、幂等 create、route dns、config 生成、固定 URL 运行） |
 | `lib/web-rpc.js` | loopback RPC：`status` / `tunnel.start` / `tunnel.stop` / `lan.setEnabled` / `version` / `update` / `restart` |
 | `client/` | 设置页「手机访问」+ 移动端适配（dsh-web-mobile 移植） |
 | `bin/dsh-pocket.mjs` | CLI：局域网/公网模式，打印 URL + 二维码 |

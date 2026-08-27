@@ -13,6 +13,11 @@ export const POCKET_ENDPOINTS = Object.freeze({
   lanSetOverride: 'lan.setOverride',
   lanSetEnabled: 'lan.setEnabled',
   pinSetCustom: 'pin.setCustom',
+  fixedSetHostname: 'fixed.setHostname',
+  fixedSetAccess: 'fixed.setAccess',
+  fixedSetPinAlways: 'fixed.setPinAlways',
+  fixedLogin: 'fixed.login',
+  fixedSetup: 'fixed.setup',
 });
 
 /** 语义化版本比较：a > b 返回正数，相等 0，a < b 负数（数字段 + 预发布后缀）。 */
@@ -59,9 +64,13 @@ export function redactStatus(s) {
     lanCandidates: Array.isArray(s?.lanCandidates) ? s.lanCandidates : [],
     lanIpOverride: s?.lanIpOverride ?? '',
     tunnelRunning: s?.tunnelRunning === true,
+    tunnelMode: s?.tunnelMode ?? null,
     tunnelUrl: s?.tunnelUrl ?? null,
     tunnelQr: s?.tunnelQr ?? null,
     tunnelState: s?.tunnelState ?? { phase: 'idle' },
     dshPort: s?.dshPort ?? null,
+    // 固定域名（命名隧道）状态与登录进程
+    fixed: s?.fixed ?? { hostname: '', accessEnabled: false, pinAlways: false, setup: { cert: false, tunnel: false, dns: false } },
+    fixedLogin: s?.fixedLogin ?? null,
   };
 }
