@@ -70,6 +70,17 @@ test('局域网地址覆盖：默认自动，设置/清除持久化，非法 IPv
   assert.equal(lanIpOverride(), '', '恢复自动');
 }));
 
+test('Pocket 代理端口：默认自动；自定义端口持久化；非法值拒绝', () => withHome(async () => {
+  const { proxyPort, setProxyPort, settingsPath } = await import('../lib/settings.mjs');
+  assert.equal(proxyPort(), null, '缺失配置 = 自动模式');
+  assert.equal(setProxyPort('8088'), 8088);
+  assert.equal(proxyPort(), 8088);
+  assert.equal(JSON.parse(readFileSync(settingsPath(), 'utf8')).proxyPort, 8088);
+  assert.throws(() => setProxyPort('80'), /1024/);
+  assert.throws(() => setProxyPort('abc'), /整数/);
+  assert.equal(setProxyPort(''), null, '空值恢复自动');
+}));
+
 test('PIN 自定义标记（issue #33）：默认 false，设置/清除持久化，未知类型 false', () => withHome(async () => {
   const { pinCustom, setPinCustom } = await import('../lib/settings.mjs');
   assert.equal(pinCustom('public'), false, '默认未自定义');

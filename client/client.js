@@ -52,6 +52,7 @@ var POCKET_ENDPOINTS = Object.freeze({
   lanAuthSetEnabled: "lanAuth.setEnabled",
   lanSetOverride: "lan.setOverride",
   lanSetEnabled: "lan.setEnabled",
+  proxySetPort: "proxy.setPort",
   virtualUse: "virtual.use",
   virtualRefresh: "virtual.refresh",
   pinSetCustom: "pin.setCustom",
@@ -95,6 +96,7 @@ function redactStatus(s) {
   return {
     proxyRunning: s?.proxyRunning === true,
     proxyPort: s?.proxyPort ?? null,
+    proxyPortSetting: s?.proxyPortSetting ?? null,
     lanUrl: s?.lanUrl ?? null,
     lanQr: s?.lanQr ?? null,
     lanCandidates: Array.isArray(s?.lanCandidates) ? s.lanCandidates : [],
@@ -1389,6 +1391,12 @@ var zh2 = {
   "lanAddress": "\u5C40\u57DF\u7F51\u5730\u5740",
   "lanAddressAuto": "\u81EA\u52A8\uFF08\u63A8\u8350\uFF09",
   "lanAddressHint": "\u9AD8\u7EA7\u9009\u9879\uFF1A\u4E00\u822C\u4E0D\u9700\u8981\u4FEE\u6539\uFF1B\u4F7F\u7528 Tailscale/VPN \u7B49\u8FDC\u7A0B\u8BBF\u95EE\u65F6\u53EF\u624B\u52A8\u9009\u62E9",
+  "proxyPort": "DSH Pocket \u4EE3\u7406\u7AEF\u53E3",
+  "proxyPortAuto": "\u81EA\u52A8\uFF08\u9ED8\u8BA4\u4ECE 3081 \u5F00\u59CB\uFF09",
+  "proxyPortHint": "\u53EA\u4FEE\u6539\u624B\u673A\u8BBF\u95EE\u4EE3\u7406\uFF1B\u672C\u673A DSH \u4ECD\u4F7F\u7528 127.0.0.1:3080\u3002\u4FDD\u5B58\u540E\u4F1A\u77ED\u6682\u91CD\u542F\u4EE3\u7406\uFF0C\u4E8C\u7EF4\u7801\u81EA\u52A8\u66F4\u65B0\u3002",
+  "proxyPortSave": "\u4FDD\u5B58\u5E76\u91CD\u542F",
+  "proxyPortBusy": "\u6B63\u5728\u5207\u6362\u7AEF\u53E3\u2026",
+  "proxyPortActual": "\u5F53\u524D\u5B9E\u9645\u7AEF\u53E3\uFF1A{port}",
   "lanPin": "\u5C40\u57DF\u7F51\u8BBF\u95EE\u5BC6\u7801",
   "on": "\u5F00",
   "off": "\u5173",
@@ -1543,6 +1551,12 @@ var en2 = {
   "lanAddress": "LAN address",
   "lanAddressAuto": "Auto (recommended)",
   "lanAddressHint": "Advanced option: usually no change needed; select manually when accessing through Tailscale/VPN",
+  "proxyPort": "DSH Pocket proxy port",
+  "proxyPortAuto": "Auto (starts at 3081)",
+  "proxyPortHint": "Only changes the phone-access proxy; local DSH stays at 127.0.0.1:3080. Saving briefly restarts the proxy and updates QR codes.",
+  "proxyPortSave": "Save and restart",
+  "proxyPortBusy": "Switching port\u2026",
+  "proxyPortActual": "Actual port: {port}",
   "lanPin": "LAN access PIN",
   "on": "On",
   "off": "Off",
@@ -1687,6 +1701,8 @@ var styles = {
 function PocketSettingsTab({ rpcCall, t }) {
   const [status, setStatus] = (0, import_react2.useState)(null);
   const [busy, setBusy] = (0, import_react2.useState)(false);
+  const [proxyPortInput, setProxyPortInput] = (0, import_react2.useState)("");
+  const [proxyPortBusy, setProxyPortBusy] = (0, import_react2.useState)(false);
   const [error, setError] = (0, import_react2.useState)(null);
   const [tunnelState, setTunnelState] = (0, import_react2.useState)(null);
   const [restartNotice, setRestartNotice] = (0, import_react2.useState)(false);
@@ -1709,6 +1725,7 @@ function PocketSettingsTab({ rpcCall, t }) {
       setStatus(s);
       setTunnelState(s.tunnelState ?? null);
       setFixedHostnameInput((cur) => cur === "" ? s.fixed?.hostname ?? "" : cur);
+      setProxyPortInput((cur) => cur === "" ? s.proxyPortSetting == null ? "" : String(s.proxyPortSetting) : cur);
       if (s.desktop) setIsDesktop(true);
       if (s.restartNotice) {
         setRestartNotice(true);
@@ -1932,6 +1949,18 @@ function PocketSettingsTab({ rpcCall, t }) {
       setError(err.message);
     }
   };
+  const saveProxyPort = async (value = proxyPortInput) => {
+    setProxyPortBusy(true);
+    try {
+      const next = await call(POCKET_ENDPOINTS.proxySetPort, { port: value });
+      setStatus(next);
+      setProxyPortInput(next.proxyPortSetting == null ? "" : String(next.proxyPortSetting));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setProxyPortBusy(false);
+    }
+  };
   const useVirtualNetwork = async (ip) => {
     try {
       setStatus(await call(POCKET_ENDPOINTS.virtualUse, { ip }));
@@ -2113,6 +2142,29 @@ function PocketSettingsTab({ rpcCall, t }) {
           )
         ),
         (0, import_react2.createElement)("div", { style: { ...styles.muted, marginTop: 2 } }, t("lanAddressHint")),
+        (0, import_react2.createElement)(
+          "div",
+          { style: { marginTop: 10, paddingTop: 8, borderTop: "1px dashed var(--dsw-alias-border-l2,#e5e7eb)" } },
+          (0, import_react2.createElement)("div", { style: { fontSize: 12, color: "var(--dsw-alias-label-secondary,#6b7280)", marginBottom: 5 } }, t("proxyPort")),
+          (0, import_react2.createElement)(
+            "div",
+            { style: { display: "flex", gap: 6, alignItems: "center" } },
+            (0, import_react2.createElement)("input", {
+              style: { width: 96, font: "inherit", height: 30, padding: "0 8px", borderRadius: 8, border: "1px solid var(--dsw-alias-border-l2,#d1d5db)", background: "var(--dsw-alias-bg-layer-1,#fff)", color: "var(--dsw-alias-label-primary,inherit)" },
+              placeholder: t("proxyPortAuto"),
+              inputMode: "numeric",
+              value: proxyPortInput,
+              onChange: (e) => setProxyPortInput(e.target.value.replace(/\D/g, "")),
+              onKeyDown: (e) => {
+                if (e.key === "Enter") void saveProxyPort();
+              }
+            }),
+            (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 30, padding: "0 10px", fontSize: 12 }, disabled: proxyPortBusy, onClick: () => saveProxyPort() }, proxyPortBusy ? t("proxyPortBusy") : t("proxyPortSave")),
+            status?.proxyPortSetting != null ? (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 30, padding: "0 10px", fontSize: 12 }, disabled: proxyPortBusy, onClick: () => saveProxyPort("") }, t("proxyPortAuto")) : null
+          ),
+          (0, import_react2.createElement)("div", { style: { ...styles.muted, marginTop: 4 } }, t("proxyPortHint")),
+          status?.proxyPort ? (0, import_react2.createElement)("div", { style: { ...styles.muted, marginTop: 2 } }, fmt(t, "proxyPortActual", { port: status.proxyPort })) : null
+        ),
         // 访问密码开关（issue #24）：默认开启；关闭后扫码直连（仅同一局域网设备可访问）
         (0, import_react2.createElement)(
           "div",

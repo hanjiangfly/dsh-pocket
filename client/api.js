@@ -12,6 +12,7 @@ export const POCKET_ENDPOINTS = Object.freeze({
   lanAuthSetEnabled: 'lanAuth.setEnabled',
   lanSetOverride: 'lan.setOverride',
   lanSetEnabled: 'lan.setEnabled',
+  proxySetPort: 'proxy.setPort',
   virtualUse: 'virtual.use',
   virtualRefresh: 'virtual.refresh',
   pinSetCustom: 'pin.setCustom',
@@ -62,6 +63,7 @@ export function redactStatus(s) {
   return {
     proxyRunning: s?.proxyRunning === true,
     proxyPort: s?.proxyPort ?? null,
+    proxyPortSetting: s?.proxyPortSetting ?? null,
     lanUrl: s?.lanUrl ?? null,
     lanQr: s?.lanQr ?? null,
     lanCandidates: Array.isArray(s?.lanCandidates) ? s.lanCandidates : [],

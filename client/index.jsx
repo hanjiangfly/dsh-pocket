@@ -47,6 +47,8 @@ const styles = {
 function PocketSettingsTab({ rpcCall, t }) {
   const [status, setStatus] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [proxyPortInput, setProxyPortInput] = useState('');
+  const [proxyPortBusy, setProxyPortBusy] = useState(false);
   const [error, setError] = useState(null);
   const [tunnelState, setTunnelState] = useState(null); // 隧道进度 {phase, detail, startedAt}
   const [restartNotice, setRestartNotice] = useState(false); // 重启后提示
@@ -73,6 +75,7 @@ function PocketSettingsTab({ rpcCall, t }) {
       setStatus(s);
       setTunnelState(s.tunnelState ?? null);
       setFixedHostnameInput((cur) => cur === '' ? (s.fixed?.hostname ?? '') : cur); // 首次加载预填域名
+      setProxyPortInput((cur) => cur === '' ? (s.proxyPortSetting == null ? '' : String(s.proxyPortSetting)) : cur);
       if (s.desktop) setIsDesktop(true);
       if (s.restartNotice) {
         // 新进程确认起来了：显示一次「已重启」，清掉旧的更新横幅（单状态，不并存），
@@ -322,6 +325,18 @@ function PocketSettingsTab({ rpcCall, t }) {
       setError(err.message);
     }
   };
+  const saveProxyPort = async (value = proxyPortInput) => {
+    setProxyPortBusy(true);
+    try {
+      const next = await call(POCKET_ENDPOINTS.proxySetPort, { port: value });
+      setStatus(next);
+      setProxyPortInput(next.proxyPortSetting == null ? '' : String(next.proxyPortSetting));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setProxyPortBusy(false);
+    }
+  };
   const useVirtualNetwork = async (ip) => {
     try {
       setStatus(await call(POCKET_ENDPOINTS.virtualUse, { ip }));
@@ -502,6 +517,21 @@ function PocketSettingsTab({ rpcCall, t }) {
             ),
           ),
           h('div', { style: { ...styles.muted, marginTop: 2 } }, t('lanAddressHint')),
+          h('div', { style: { marginTop: 10, paddingTop: 8, borderTop: '1px dashed var(--dsw-alias-border-l2,#e5e7eb)' } },
+            h('div', { style: { fontSize: 12, color: 'var(--dsw-alias-label-secondary,#6b7280)', marginBottom: 5 } }, t('proxyPort')),
+            h('div', { style: { display: 'flex', gap: 6, alignItems: 'center' } },
+              h('input', {
+                style: { width: 96, font: 'inherit', height: 30, padding: '0 8px', borderRadius: 8, border: '1px solid var(--dsw-alias-border-l2,#d1d5db)', background: 'var(--dsw-alias-bg-layer-1,#fff)', color: 'var(--dsw-alias-label-primary,inherit)' },
+                placeholder: t('proxyPortAuto'), inputMode: 'numeric', value: proxyPortInput,
+                onChange: (e) => setProxyPortInput(e.target.value.replace(/\D/g, '')),
+                onKeyDown: (e) => { if (e.key === 'Enter') void saveProxyPort(); },
+              }),
+              h('button', { style: { ...styles.btn, height: 30, padding: '0 10px', fontSize: 12 }, disabled: proxyPortBusy, onClick: () => saveProxyPort() }, proxyPortBusy ? t('proxyPortBusy') : t('proxyPortSave')),
+              status?.proxyPortSetting != null ? h('button', { style: { ...styles.btn, height: 30, padding: '0 10px', fontSize: 12 }, disabled: proxyPortBusy, onClick: () => saveProxyPort('') }, t('proxyPortAuto')) : null,
+            ),
+            h('div', { style: { ...styles.muted, marginTop: 4 } }, t('proxyPortHint')),
+            status?.proxyPort ? h('div', { style: { ...styles.muted, marginTop: 2 } }, fmt(t, 'proxyPortActual', { port: status.proxyPort })) : null,
+          ),
           // 访问密码开关（issue #24）：默认开启；关闭后扫码直连（仅同一局域网设备可访问）
           h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 } },
             h('span', { style: { fontSize: 12, color: 'var(--dsw-alias-label-secondary,#6b7280)' } }, t('lanPin')),

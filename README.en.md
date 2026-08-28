@@ -46,6 +46,7 @@ What it looks like — the phone shows the exact same UI as your computer, live:
 | 📶 LAN QR access | Works out of the box: Settings → Phone access — scan the LAN QR on the same Wi-Fi (auto-detects the LAN IP; **under WSL it picks the Windows host's physical NIC IP**) |
 | 🌐 Virtual LAN (personal remote access) | Auto-detects connected **Tailscale / ZeroTier** virtual IPs. Choose one to get a dedicated QR code for secure remote access without a public domain or Cloudflare. |
 | 🚪 LAN switch | **Turn LAN access off/on with one click** in Settings (a confirmation dialog shows each time): off kills the LAN QR code and link instantly; public access is unaffected |
+| 🔌 Custom proxy port | Auto mode starts at `3081`; choose a port such as `8088` to restart the Pocket proxy and update all QR codes. **The DSH service at `127.0.0.1:3080` is never changed.** |
 | 🌐 Public QR (from anywhere) | Click "Enable anywhere" → cloudflared tunnel → scan the public QR over 4G / any network |
 | 🖥️ VPS relay (planned) | Your own VPS with built-in password / TOTP authentication; not implemented yet — request it in Issues if you need it. |
 | 🔐 Access PIN | Public links require an **8-digit PIN** (rotated on every tunnel start by default; **customizable to a fixed PIN** — custom PINs are not rotated); LAN has its own separate **8-digit PIN** (on by default; switchable off in Settings — then LAN scans connect directly) |

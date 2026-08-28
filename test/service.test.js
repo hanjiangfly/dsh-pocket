@@ -670,6 +670,34 @@ test('startProxy：端口被占（EADDRINUSE）时自动尝试下一个端口', 
   await service.dispose();
 });
 
+test('代理端口：自定义端口严格监听；恢复自动模式；公网隧道跟随重建', async () => {
+  const opened = [];
+  let tunnelStarts = 0;
+  const internals = {
+    ...stubInternals(),
+    createProxy: async ({ port }) => ({ port, close: async () => { opened.push(`close:${port}`); } }),
+    startTunnel: async ({ port }) => { tunnelStarts += 1; return { url: `https://port-${port}.trycloudflare.com`, kill: () => {} }; },
+  };
+  const service = createPocketService({ dshPort: 3080, port: 3081, internals });
+  await service.startProxy();
+  await service.startTunnel();
+  const custom = await service.restartProxyOnPort('8088');
+  assert.deepEqual(custom, { port: 8088, custom: true });
+  let status = await service.status();
+  assert.equal(status.proxyPort, 8088);
+  assert.equal(status.proxyPortSetting, 8088);
+  assert.equal(status.lanUrl, 'http://192.168.1.50:8088');
+  assert.equal(status.tunnelUrl, 'https://port-8088.trycloudflare.com', '隧道重建到新代理端口');
+  assert.equal(tunnelStarts, 2);
+
+  await service.restartProxyOnPort('');
+  status = await service.status();
+  assert.equal(status.proxyPort, 3081);
+  assert.equal(status.proxyPortSetting, null, '空值恢复自动模式');
+  assert.ok(opened.includes('close:8088'));
+  await service.dispose();
+});
+
 test('公网隧道自动恢复：开启时持久化标记，重启后 restoreTunnelIfNeeded 自动拉起（issue #11）', async () => {
   const fsp = await import('node:fs/promises');
   const os = await import('node:os');
