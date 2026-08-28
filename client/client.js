@@ -1456,6 +1456,8 @@ var zh2 = {
   "guestReadonlyBody": "\u4F60\u6B63\u5728\u901A\u8FC7\u4E34\u65F6\u5206\u4EAB\u94FE\u63A5\u8BBF\u95EE DSH\u3002\u4E3A\u4FDD\u62A4\u6240\u6709\u8005\u7684\u7F51\u7EDC\u4E0E\u5B89\u5168\u8BBE\u7F6E\uFF0C\u4E8C\u7EF4\u7801\u3001\u8BBF\u95EE\u5730\u5740\u3001\u5BC6\u7801\u548C\u7BA1\u7406\u5F00\u5173\u4E0D\u4F1A\u663E\u793A\u3002",
   "guestHint": "\u521B\u5EFA\u5E26\u6709\u6548\u671F\u7684\u72EC\u7ACB PIN\uFF1B\u53EF\u67E5\u770B\u5728\u7EBF\u72B6\u6001\u3001\u7981\u7528\u767B\u5F55\u3001\u8E22\u4E0B\u7EBF\u6216\u7ACB\u5373\u4F5C\u5E9F\u3002\u5173\u95ED\u603B\u5F00\u5173\u4F1A\u7EC8\u6B62\u5168\u90E8\u8BBF\u5BA2\u4F1A\u8BDD\u3002",
   "guestFullAccessWarning": "\u26A0 \u8BBF\u5BA2\u62E5\u6709\u5B8C\u6574 DSH \u64CD\u4F5C\u80FD\u529B\uFF0C\u4EC5\u5206\u4EAB\u7ED9\u5B8C\u5168\u53EF\u4FE1\u7684\u4EBA\u3002",
+  "guestRiskEnabled": "\u9AD8\u98CE\u9669 \xB7 \u5F00",
+  "guestRiskDisabled": "\u5173",
   "guestSecurityLimitTitle": "\u5F53\u524D\u7248\u672C\u7684\u6743\u9650\u9650\u5236\uFF08\u70B9\u51FB\u67E5\u770B\uFF09",
   "guestSecurityLimitBody": "\u5F53\u524D\u4EC5\u80FD\u4F9D\u636E\u8BBF\u5BA2\u94FE\u63A5\u5728\u754C\u9762\u4E0A\u9690\u85CF\u8BBE\u7F6E\u3001\u5BC6\u7801\u548C\u516C\u7F51\u63A7\u5236\u7B49\u654F\u611F\u5185\u5BB9\uFF0C\u907F\u514D\u8BEF\u64CD\u4F5C\u4E0E\u4FE1\u606F\u66B4\u9732\uFF1B\u8FD9\u4E0D\u662F\u670D\u52A1\u7AEF\u6743\u9650\u63A7\u5236\u3002\u82E5\u8BBF\u5BA2\u77E5\u9053\u6216\u80FD\u8C03\u7528 DSH \u7684\u8FDE\u63A5\u63A5\u53E3\uFF0C\u7406\u8BBA\u4E0A\u4ECD\u53EF\u80FD\u53D1\u8D77\u5B8C\u6574\u64CD\u4F5C\u3002\u771F\u6B63\u7684\u5F3A\u5236\u6388\u6743\u9700\u8981\u9002\u914D DSH \u7684\u8FDE\u63A5\u534F\u8BAE\uFF0C\u628A\u5F53\u524D\u8BBF\u5BA2\u8EAB\u4EFD\u53EF\u9760\u4F20\u5230\u63D2\u4EF6\u670D\u52A1\u7AEF\uFF1B\u5728\u786E\u8BA4\u8BE5\u534F\u8BAE\u524D\uFF0C\u4E0D\u80FD\u628A\u524D\u7AEF\u9690\u85CF\u5F53\u4F5C\u5B89\u5168\u8FB9\u754C\u3002Cloudflare Access \u53EA\u589E\u52A0\u8FB9\u7F18\u8BA4\u8BC1\uFF0C\u4E0D\u4F1A\u89E3\u51B3\u8FD9\u4E00\u6743\u9650\u9650\u5236\u3002",
   "guestLabel": "\u5907\u6CE8\uFF08\u5982\uFF1A\u540C\u4E8B\uFF09",
@@ -1682,6 +1684,8 @@ var en2 = {
   "guestReadonlyBody": "You are accessing DSH through a temporary shared link. To protect the owner\u2019s network and security settings, QR codes, access addresses, passwords, and management controls are hidden.",
   "guestHint": "Create expiring PINs, see activity, disable sign-ins, sign sessions out, or revoke access. Turning this feature off ends all guest sessions.",
   "guestFullAccessWarning": "\u26A0 Guests currently retain full DSH capabilities. Share only with people you completely trust.",
+  "guestRiskEnabled": "High risk \xB7 ON",
+  "guestRiskDisabled": "OFF",
   "guestSecurityLimitTitle": "Current permission limitation (click to view)",
   "guestSecurityLimitBody": "This version only hides sensitive settings, PINs, and public controls in the interface based on a guest link, to prevent accidental actions and disclosure; it is not server-side authorization. A guest who knows or can call the DSH connection interface could theoretically still perform full operations. Real enforcement requires adapting the DSH connection protocol so the current guest identity is reliably delivered to the plugin server. Until that protocol is confirmed, hidden UI must not be treated as a security boundary. Cloudflare Access adds edge authentication only and does not resolve this limitation.",
   "guestLabel": "Label (e.g. coworker)",
@@ -2824,7 +2828,12 @@ function PocketSettingsTab({ rpcCall, t }) {
           "div",
           { style: { display: "flex", alignItems: "center", gap: 8 } },
           (0, import_react2.createElement)("strong", { style: { fontSize: 13 } }, t("guestTitle")),
-          (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 28, padding: "0 12px", marginLeft: "auto" }, onClick: () => guestAction(POCKET_ENDPOINTS.guestSetEnabled, { on: status?.guestAccess?.enabled !== true }) }, status?.guestAccess?.enabled === true ? t("on") : t("off"))
+          status?.guestAccess?.enabled === true ? (0, import_react2.createElement)("span", { title: t("guestFullAccessWarning"), style: { width: 7, height: 7, borderRadius: "50%", background: "var(--dsw-alias-state-error-primary,#dc2626)", display: "inline-block" } }) : null,
+          (0, import_react2.createElement)("button", {
+            style: status?.guestAccess?.enabled === true ? { ...styles.btn, height: 28, padding: "0 12px", marginLeft: "auto", borderColor: "var(--dsw-alias-state-error-primary,#dc2626)", background: "var(--dsw-alias-state-error-primary,#dc2626)", color: "#fff", fontWeight: 700 } : { ...styles.btn, height: 28, padding: "0 12px", marginLeft: "auto" },
+            title: status?.guestAccess?.enabled === true ? t("guestFullAccessWarning") : t("guestHint"),
+            onClick: () => guestAction(POCKET_ENDPOINTS.guestSetEnabled, { on: status?.guestAccess?.enabled !== true })
+          }, status?.guestAccess?.enabled === true ? t("guestRiskEnabled") : t("guestRiskDisabled"))
         ),
         (0, import_react2.createElement)("div", { style: styles.muted }, t("guestHint")),
         (0, import_react2.createElement)("div", { style: { marginTop: 7, padding: "8px 10px", borderRadius: 8, border: "1px solid rgba(220,38,38,.35)", borderLeft: "4px solid var(--dsw-alias-state-error-primary,#dc2626)", background: "rgba(220,38,38,.07)", color: "var(--dsw-alias-state-error-primary,#dc2626)", fontSize: 12, fontWeight: 600, lineHeight: 1.5 } }, t("guestFullAccessWarning")),

@@ -982,7 +982,14 @@ function PocketSettingsTab({ rpcCall, t }) {
     h('div', { style: styles.block },
       h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
         h('strong', { style: { fontSize: 13 } }, t('guestTitle')),
-        h('button', { style: { ...styles.btn, height: 28, padding: '0 12px', marginLeft: 'auto' }, onClick: () => guestAction(POCKET_ENDPOINTS.guestSetEnabled, { on: status?.guestAccess?.enabled !== true }) }, status?.guestAccess?.enabled === true ? t('on') : t('off')),
+        status?.guestAccess?.enabled === true ? h('span', { title: t('guestFullAccessWarning'), style: { width: 7, height: 7, borderRadius: '50%', background: 'var(--dsw-alias-state-error-primary,#dc2626)', display: 'inline-block' } }) : null,
+        h('button', {
+          style: status?.guestAccess?.enabled === true
+            ? { ...styles.btn, height: 28, padding: '0 12px', marginLeft: 'auto', borderColor: 'var(--dsw-alias-state-error-primary,#dc2626)', background: 'var(--dsw-alias-state-error-primary,#dc2626)', color: '#fff', fontWeight: 700 }
+            : { ...styles.btn, height: 28, padding: '0 12px', marginLeft: 'auto' },
+          title: status?.guestAccess?.enabled === true ? t('guestFullAccessWarning') : t('guestHint'),
+          onClick: () => guestAction(POCKET_ENDPOINTS.guestSetEnabled, { on: status?.guestAccess?.enabled !== true }),
+        }, status?.guestAccess?.enabled === true ? t('guestRiskEnabled') : t('guestRiskDisabled')),
       ),
       h('div', { style: styles.muted }, t('guestHint')),
       h('div', { style: { marginTop: 7, padding: '8px 10px', borderRadius: 8, border: '1px solid rgba(220,38,38,.35)', borderLeft: '4px solid var(--dsw-alias-state-error-primary,#dc2626)', background: 'rgba(220,38,38,.07)', color: 'var(--dsw-alias-state-error-primary,#dc2626)', fontSize: 12, fontWeight: 600, lineHeight: 1.5 } }, t('guestFullAccessWarning')),
