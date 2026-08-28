@@ -73,9 +73,15 @@ function publicStateLabel(t, kind) {
  */
 function installPublicAccessIndicators(ctx, rpcCall, t) {
   let latest = { kind: 'local' };
+  // 自己插入的状态节点不参与匹配，避免热更新或后续状态刷新时把“手机访问 ●”误判为另一个标签。
+  const entryText = (node) => {
+    const clone = node.cloneNode(true);
+    clone.querySelectorAll('[data-dsh-pocket-status],[data-dsh-pocket-status-text]').forEach((item) => item.remove());
+    return (clone.textContent ?? '').trim();
+  };
   const candidates = (labels) => Array.from(document.querySelectorAll('button,[role="button"]'))
-    .filter((node) => labels.includes((node.textContent ?? '').trim()));
-  const paint = (node, id, expanded) => {
+    .filter((node) => labels.includes(entryText(node)));
+  const paint = (node, id) => {
     if (!node || !node.isConnected) return;
     let dot = node.querySelector(`:scope > [data-dsh-pocket-status="${id}"]`);
     if (!dot) {
@@ -88,23 +94,14 @@ function installPublicAccessIndicators(ctx, rpcCall, t) {
     const label = publicStateLabel(t, latest.kind);
     dot.style.background = publicStateColor(latest.kind);
     dot.title = label;
-    if (expanded) {
-      let text = node.querySelector(`:scope > [data-dsh-pocket-status-text="${id}"]`);
-      if (!text) {
-        text = document.createElement('span');
-        text.dataset.dshPocketStatusText = id;
-        text.style.cssText = 'font-size:11px;margin-left:5px;opacity:.82;white-space:nowrap;';
-        node.appendChild(text);
-      }
-      text.textContent = label;
-      text.style.color = publicStateColor(latest.kind);
-    }
+    // 旧版曾在左栏显示文字，空间不足会截断“手机访问”；热更新时顺便清理。
+    node.querySelector(`:scope > [data-dsh-pocket-status-text="${id}"]`)?.remove();
   };
   const render = () => {
-    // 设置对话框左栏：“手机访问”状态点 + 短状态文字。
-    for (const node of candidates([t('section'), 'Phone access'])) paint(node, 'phone-nav', true);
+    // 设置对话框左栏：仅状态点，完整说明只保留在右侧顶部摘要。
+    for (const node of candidates([t('section'), 'Phone access'])) paint(node, 'phone-nav');
     // 应用左下角的“设置”：只显示圆点，避免挤压全局导航。
-    for (const node of candidates(['设置', 'Settings'])) paint(node, 'global-settings', false);
+    for (const node of candidates(['设置', 'Settings'])) paint(node, 'global-settings');
   };
   const refresh = async () => {
     try { latest = publicAccessState(await rpcCall(POCKET_ENDPOINTS.status, {})); } catch { /* 本地服务短暂重启时保留上次灯色 */ }

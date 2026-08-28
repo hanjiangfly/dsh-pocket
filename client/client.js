@@ -1816,8 +1816,13 @@ function publicStateLabel(t, kind) {
 }
 function installPublicAccessIndicators(ctx, rpcCall, t) {
   let latest = { kind: "local" };
-  const candidates = (labels) => Array.from(document.querySelectorAll('button,[role="button"]')).filter((node) => labels.includes((node.textContent ?? "").trim()));
-  const paint = (node, id, expanded) => {
+  const entryText = (node) => {
+    const clone = node.cloneNode(true);
+    clone.querySelectorAll("[data-dsh-pocket-status],[data-dsh-pocket-status-text]").forEach((item) => item.remove());
+    return (clone.textContent ?? "").trim();
+  };
+  const candidates = (labels) => Array.from(document.querySelectorAll('button,[role="button"]')).filter((node) => labels.includes(entryText(node)));
+  const paint = (node, id) => {
     if (!node || !node.isConnected) return;
     let dot = node.querySelector(`:scope > [data-dsh-pocket-status="${id}"]`);
     if (!dot) {
@@ -1830,21 +1835,11 @@ function installPublicAccessIndicators(ctx, rpcCall, t) {
     const label = publicStateLabel(t, latest.kind);
     dot.style.background = publicStateColor(latest.kind);
     dot.title = label;
-    if (expanded) {
-      let text = node.querySelector(`:scope > [data-dsh-pocket-status-text="${id}"]`);
-      if (!text) {
-        text = document.createElement("span");
-        text.dataset.dshPocketStatusText = id;
-        text.style.cssText = "font-size:11px;margin-left:5px;opacity:.82;white-space:nowrap;";
-        node.appendChild(text);
-      }
-      text.textContent = label;
-      text.style.color = publicStateColor(latest.kind);
-    }
+    node.querySelector(`:scope > [data-dsh-pocket-status-text="${id}"]`)?.remove();
   };
   const render = () => {
-    for (const node of candidates([t("section"), "Phone access"])) paint(node, "phone-nav", true);
-    for (const node of candidates(["\u8BBE\u7F6E", "Settings"])) paint(node, "global-settings", false);
+    for (const node of candidates([t("section"), "Phone access"])) paint(node, "phone-nav");
+    for (const node of candidates(["\u8BBE\u7F6E", "Settings"])) paint(node, "global-settings");
   };
   const refresh = async () => {
     try {
