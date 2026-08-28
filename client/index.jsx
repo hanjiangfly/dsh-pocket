@@ -104,7 +104,12 @@ function installPublicAccessIndicators(ctx, rpcCall, t) {
     for (const node of candidates(['设置', 'Settings'])) paint(node, 'global-settings');
   };
   const refresh = async () => {
-    try { latest = publicAccessState(await rpcCall(POCKET_ENDPOINTS.status, {})); } catch { /* 本地服务短暂重启时保留上次灯色 */ }
+    try {
+      // connection.rpc 返回 { ok, value }；设置页本身会在 call() 中拆 value，
+      // 全局/左栏增强层也必须读取同一份快照，否则会把所有状态误判为“仅本地”。
+      const result = await rpcCall(POCKET_ENDPOINTS.status, {});
+      if (result?.ok) latest = publicAccessState(result.value);
+    } catch { /* 本地服务短暂重启时保留上次灯色 */ }
     render();
   };
   ctx.effect(() => {

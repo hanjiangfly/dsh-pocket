@@ -1843,7 +1843,8 @@ function installPublicAccessIndicators(ctx, rpcCall, t) {
   };
   const refresh = async () => {
     try {
-      latest = publicAccessState(await rpcCall(POCKET_ENDPOINTS.status, {}));
+      const result = await rpcCall(POCKET_ENDPOINTS.status, {});
+      if (result?.ok) latest = publicAccessState(result.value);
     } catch {
     }
     render();
