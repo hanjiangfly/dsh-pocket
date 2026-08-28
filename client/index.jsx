@@ -53,7 +53,8 @@ function publicAccessState(status) {
   if (status?.tunnelRunning && phase === 'ready') return { kind: 'online' };
   if (['downloading', 'starting', 'registering', 'checking'].includes(phase)) return { kind: 'connecting' };
   if (phase === 'error') return { kind: 'problem', detail: status?.tunnelState?.detail };
-  if (fixedConfigured) return { kind: 'problem', detail: 'fixed-stopped' };
+  // 用户主动关闭隧道后是 idle，不是故障；仍可在灰色摘要中说明固定域名已配置。
+  if (fixedConfigured) return { kind: 'local', detail: 'fixed-stopped' };
   return { kind: 'local' };
 }
 
@@ -565,8 +566,8 @@ function PocketSettingsTab({ rpcCall, t }) {
       pin: fixedPinRequired ? t('remotePinForced') : t('remotePinDisabled'),
     })
     : remoteState.kind === 'connecting' ? t('remoteSummaryConnectingDetail')
-      : remoteState.kind === 'problem' ? fmt(t, 'remoteSummaryProblemDetail', { detail: remoteState.detail === 'fixed-stopped' ? t('remoteSummaryStoppedFixed') : (remoteState.detail || t('fixedRuntimeStopped')) })
-        : t('remoteSummaryLocalDetail');
+      : remoteState.kind === 'problem' ? fmt(t, 'remoteSummaryProblemDetail', { detail: remoteState.detail || t('fixedRuntimeStopped') })
+        : remoteState.detail === 'fixed-stopped' ? t('remoteSummaryLocalFixedDetail') : t('remoteSummaryLocalDetail');
 
   return h('div', { style: styles.card },
     h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 } },

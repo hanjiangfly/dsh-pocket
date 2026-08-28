@@ -1363,13 +1363,13 @@ var zh2 = {
   "subtitle": "\u624B\u673A\u626B\u7801\u6253\u5F00\u7684\u5C31\u662F\u7535\u8111\u4E0A\u7684\u8FD9\u4E2A\u754C\u9762\uFF0C\u5B9E\u65F6\u540C\u6B65",
   "remoteSummaryLocal": "\u4EC5\u672C\u5730\u8BBF\u95EE",
   "remoteSummaryLocalDetail": "\u5C40\u57DF\u7F51 / \u865A\u62DF\u5C40\u57DF\u7F51\u53EF\u7528\uFF1B\u516C\u7F51\u672A\u5F00\u542F",
+  "remoteSummaryLocalFixedDetail": "\u56FA\u5B9A\u57DF\u540D\u5DF2\u914D\u7F6E\uFF0C\u5F53\u524D\u672A\u5F00\u542F\u516C\u7F51",
   "remoteSummaryConnecting": "\u6B63\u5728\u5EFA\u7ACB\u516C\u7F51\u8BBF\u95EE",
   "remoteSummaryConnectingDetail": "Cloudflare \u96A7\u9053\u6B63\u5728\u8FDE\u63A5\uFF0C\u8BF7\u7A0D\u5019",
   "remoteSummaryOnline": "\u6B63\u5728\u516C\u7F51\u8BBF\u95EE",
   "remoteSummaryOnlineDetail": "{mode} \xB7 {host} \xB7 {access} \xB7 {pin}",
   "remoteSummaryProblem": "\u516C\u7F51\u8BBF\u95EE\u4E0D\u53EF\u7528",
   "remoteSummaryProblemDetail": "{detail}",
-  "remoteSummaryStoppedFixed": "\u56FA\u5B9A\u57DF\u540D\u5DF2\u914D\u7F6E\uFF0C\u4F46\u672C\u5730\u96A7\u9053\u672A\u8FD0\u884C",
   "remoteModeQuick": "\u5FEB\u901F\u96A7\u9053",
   "remoteModeFixed": "\u56FA\u5B9A\u57DF\u540D",
   "remoteAccessVerified": "Access \u5DF2\u9A8C\u8BC1",
@@ -1571,13 +1571,13 @@ var en2 = {
   "subtitle": "The phone shows this exact screen, live",
   "remoteSummaryLocal": "Local access only",
   "remoteSummaryLocalDetail": "LAN / virtual LAN is available; public access is off",
+  "remoteSummaryLocalFixedDetail": "Custom domain is configured; public access is currently off",
   "remoteSummaryConnecting": "Establishing public access",
   "remoteSummaryConnectingDetail": "Cloudflare Tunnel is connecting; please wait",
   "remoteSummaryOnline": "Public access is live",
   "remoteSummaryOnlineDetail": "{mode} \xB7 {host} \xB7 {access} \xB7 {pin}",
   "remoteSummaryProblem": "Public access unavailable",
   "remoteSummaryProblemDetail": "{detail}",
-  "remoteSummaryStoppedFixed": "Custom domain is configured, but the local tunnel is not running",
   "remoteModeQuick": "Quick tunnel",
   "remoteModeFixed": "Custom domain",
   "remoteAccessVerified": "Access verified",
@@ -1805,7 +1805,7 @@ function publicAccessState(status) {
   if (status?.tunnelRunning && phase === "ready") return { kind: "online" };
   if (["downloading", "starting", "registering", "checking"].includes(phase)) return { kind: "connecting" };
   if (phase === "error") return { kind: "problem", detail: status?.tunnelState?.detail };
-  if (fixedConfigured) return { kind: "problem", detail: "fixed-stopped" };
+  if (fixedConfigured) return { kind: "local", detail: "fixed-stopped" };
   return { kind: "local" };
 }
 function publicStateColor(kind) {
@@ -2289,7 +2289,7 @@ function PocketSettingsTab({ rpcCall, t }) {
     host: remoteHost,
     access: fAccess ? fAccessVerified ? t("remoteAccessVerified") : t("remoteAccessUnverified") : t("remoteAccessUnverified"),
     pin: fixedPinRequired ? t("remotePinForced") : t("remotePinDisabled")
-  }) : remoteState.kind === "connecting" ? t("remoteSummaryConnectingDetail") : remoteState.kind === "problem" ? fmt(t, "remoteSummaryProblemDetail", { detail: remoteState.detail === "fixed-stopped" ? t("remoteSummaryStoppedFixed") : remoteState.detail || t("fixedRuntimeStopped") }) : t("remoteSummaryLocalDetail");
+  }) : remoteState.kind === "connecting" ? t("remoteSummaryConnectingDetail") : remoteState.kind === "problem" ? fmt(t, "remoteSummaryProblemDetail", { detail: remoteState.detail || t("fixedRuntimeStopped") }) : remoteState.detail === "fixed-stopped" ? t("remoteSummaryLocalFixedDetail") : t("remoteSummaryLocalDetail");
   return (0, import_react2.createElement)(
     "div",
     { style: styles.card },
