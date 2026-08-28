@@ -52,7 +52,6 @@ var POCKET_ENDPOINTS = Object.freeze({
   lanAuthSetEnabled: "lanAuth.setEnabled",
   lanSetOverride: "lan.setOverride",
   lanSetEnabled: "lan.setEnabled",
-  proxySetPort: "proxy.setPort",
   virtualUse: "virtual.use",
   virtualRefresh: "virtual.refresh",
   pinSetCustom: "pin.setCustom",
@@ -61,7 +60,13 @@ var POCKET_ENDPOINTS = Object.freeze({
   fixedVerifyAccess: "fixed.verifyAccess",
   fixedSetPinAlways: "fixed.setPinAlways",
   fixedLogin: "fixed.login",
-  fixedSetup: "fixed.setup"
+  fixedSetup: "fixed.setup",
+  guestCreate: "guest.create",
+  guestCreateInvite: "guest.createInvite",
+  guestSetEnabled: "guest.setEnabled",
+  guestSetLogin: "guest.setLogin",
+  guestKick: "guest.kick",
+  guestRevoke: "guest.revoke"
 });
 function compareVersions(a, b) {
   const pa = String(a).replace(/^[vV]/, "").split(".");
@@ -96,7 +101,6 @@ function redactStatus(s) {
   return {
     proxyRunning: s?.proxyRunning === true,
     proxyPort: s?.proxyPort ?? null,
-    proxyPortSetting: s?.proxyPortSetting ?? null,
     lanUrl: s?.lanUrl ?? null,
     lanQr: s?.lanQr ?? null,
     lanCandidates: Array.isArray(s?.lanCandidates) ? s.lanCandidates : [],
@@ -1391,12 +1395,6 @@ var zh2 = {
   "lanAddress": "\u5C40\u57DF\u7F51\u5730\u5740",
   "lanAddressAuto": "\u81EA\u52A8\uFF08\u63A8\u8350\uFF09",
   "lanAddressHint": "\u9AD8\u7EA7\u9009\u9879\uFF1A\u4E00\u822C\u4E0D\u9700\u8981\u4FEE\u6539\uFF1B\u4F7F\u7528 Tailscale/VPN \u7B49\u8FDC\u7A0B\u8BBF\u95EE\u65F6\u53EF\u624B\u52A8\u9009\u62E9",
-  "proxyPort": "DSH Pocket \u4EE3\u7406\u7AEF\u53E3",
-  "proxyPortAuto": "\u81EA\u52A8\uFF08\u9ED8\u8BA4\u4ECE 3081 \u5F00\u59CB\uFF09",
-  "proxyPortHint": "\u53EA\u4FEE\u6539\u624B\u673A\u8BBF\u95EE\u4EE3\u7406\uFF1B\u672C\u673A DSH \u4ECD\u4F7F\u7528 127.0.0.1:3080\u3002\u4FDD\u5B58\u540E\u4F1A\u77ED\u6682\u91CD\u542F\u4EE3\u7406\uFF0C\u4E8C\u7EF4\u7801\u81EA\u52A8\u66F4\u65B0\u3002",
-  "proxyPortSave": "\u4FDD\u5B58\u5E76\u91CD\u542F",
-  "proxyPortBusy": "\u6B63\u5728\u5207\u6362\u7AEF\u53E3\u2026",
-  "proxyPortActual": "\u5F53\u524D\u5B9E\u9645\u7AEF\u53E3\uFF1A{port}",
   "lanPin": "\u5C40\u57DF\u7F51\u8BBF\u95EE\u5BC6\u7801",
   "on": "\u5F00",
   "off": "\u5173",
@@ -1423,6 +1421,44 @@ var zh2 = {
   "virtualPinOffTitle": "\u5173\u95ED\u865A\u62DF\u5C40\u57DF\u7F51 PIN\uFF1F",
   "virtualPinOffBody": "\u52A0\u5165\u540C\u4E00 Tailscale / ZeroTier \u7F51\u7EDC\u7684\u8BBE\u5907\u5C06\u53EF\u76F4\u63A5\u8FDB\u5165 DSH\u3002\u8BF7\u786E\u8BA4\u8FD9\u4E9B\u8BBE\u5907\u90FD\u7531\u4F60\u63A7\u5236\u3002",
   "virtualPinOffConfirm": "\u4ECD\u7136\u5173\u95ED",
+  "guestTitle": "\u{1F465} \u4E34\u65F6\u8BBF\u5BA2\u8BBF\u95EE",
+  "guestHint": "\u521B\u5EFA\u5E26\u6709\u6548\u671F\u7684\u72EC\u7ACB PIN\uFF1B\u53EF\u67E5\u770B\u5728\u7EBF\u72B6\u6001\u3001\u7981\u7528\u767B\u5F55\u3001\u8E22\u4E0B\u7EBF\u6216\u7ACB\u5373\u4F5C\u5E9F\u3002\u5173\u95ED\u603B\u5F00\u5173\u4F1A\u7EC8\u6B62\u5168\u90E8\u8BBF\u5BA2\u4F1A\u8BDD\u3002",
+  "guestFullAccessWarning": "\u26A0 \u8BBF\u5BA2\u62E5\u6709\u5B8C\u6574 DSH \u64CD\u4F5C\u80FD\u529B\uFF0C\u4EC5\u5206\u4EAB\u7ED9\u53EF\u4FE1\u7684\u4EBA\u3002Cloudflare Access \u542F\u7528\u65F6\uFF0C\u8BBF\u5BA2\u4ECD\u9700\u5148\u901A\u8FC7\u5176\u8FB9\u7F18\u8BA4\u8BC1\u3002",
+  "guestLabel": "\u5907\u6CE8\uFF08\u5982\uFF1A\u540C\u4E8B\uFF09",
+  "guestMinutes": "\u5206\u949F",
+  "guestHours": "\u5C0F\u65F6",
+  "guestScopeBoth": "\u5168\u90E8\u5165\u53E3",
+  "guestScopeLan": "\u5C40\u57DF\u7F51/\u865A\u62DF\u7F51",
+  "guestScopePublic": "\u4EC5\u516C\u7F51",
+  "guestCreate": "\u521B\u5EFA\u8BBF\u5BA2 PIN",
+  "guestPinOnce": "\u8BF7\u7ACB\u5373\u590D\u5236\uFF1APIN \u53EA\u663E\u793A\u8FD9\u4E00\u6B21",
+  "guestCopy": "\u590D\u5236 PIN",
+  "guestShare": "\u5206\u4EAB\u94FE\u63A5",
+  "guestShareTitle": "\u5206\u4EAB\u4E34\u65F6\u8BBF\u5BA2\u94FE\u63A5",
+  "guestShareHint": "\u672C\u6B21\u751F\u6210\u4F1A\u4F7F\u6B64\u524D\u7684\u5206\u4EAB\u94FE\u63A5\u5931\u6548\uFF1BPIN \u4E0D\u4F1A\u51FA\u73B0\u5728\u94FE\u63A5\u4E2D\u3002",
+  "guestShareText": "DSH Pocket \u4E34\u65F6\u8BBF\u5BA2\u8BBF\u95EE",
+  "guestShareLan": "\u5C40\u57DF\u7F51 / \u865A\u62DF\u5C40\u57DF\u7F51\u94FE\u63A5",
+  "guestSharePublic": "\u516C\u7F51\u94FE\u63A5",
+  "guestShareFixed": "\u56FA\u5B9A\u57DF\u540D\u516C\u7F51\u94FE\u63A5",
+  "guestSystemShare": "\u7CFB\u7EDF\u5206\u4EAB",
+  "guestCopyLink": "\u590D\u5236\u94FE\u63A5",
+  "guestShareUnavailable": "\u5F53\u524D\u6CA1\u6709\u7B26\u5408\u6388\u6743\u8303\u56F4\u7684\u53EF\u7528\u5730\u5740\uFF1B\u8BF7\u5148\u5F00\u542F\u5BF9\u5E94\u7684\u5C40\u57DF\u7F51\u6216\u516C\u7F51\u5165\u53E3\u3002",
+  "guestScopeExcluded": "\u8BE5\u8BBF\u5BA2\u7684\u8BBF\u95EE\u8303\u56F4\u4E0D\u5305\u542B\u6B64\u5165\u53E3\u3002",
+  "guestLanDisabled": "\u5C40\u57DF\u7F51\u8BBF\u95EE\u5DF2\u5173\u95ED\uFF0C\u5F00\u542F\u540E\u624D\u80FD\u751F\u6210\u6B64\u94FE\u63A5\u3002",
+  "guestPublicDisabled": "\u516C\u7F51\u96A7\u9053\u5C1A\u672A\u8FD0\u884C\uFF1B\u5F00\u542F\u5FEB\u901F\u96A7\u9053\u6216\u56FA\u5B9A\u57DF\u540D\u540E\u4F1A\u751F\u6210\u5916\u7F51\u94FE\u63A5\u3002",
+  "guestAddressUnavailable": "\u5F53\u524D\u5165\u53E3\u5730\u5740\u5C1A\u672A\u5C31\u7EEA\u3002",
+  "guestCopied": "\u2713 \u5DF2\u590D\u5236\u5230\u526A\u8D34\u677F",
+  "guestCopyFailed": "\u590D\u5236\u5931\u8D25\uFF0C\u8BF7\u957F\u6309\u6216\u624B\u52A8\u9009\u62E9\u4E0A\u65B9\u94FE\u63A5\u590D\u5236\u3002",
+  "guestShareSecurity": "\u{1F510} \u94FE\u63A5\u672C\u8EAB\u5C31\u662F\u4E34\u65F6\u8BBF\u95EE\u51ED\u636E\uFF0C\u8BF7\u53EA\u53D1\u7ED9\u53EF\u4FE1\u7684\u4EBA\u3002\u7ACB\u5373\u4F5C\u5E9F\u4F1A\u540C\u65F6\u8BA9 PIN\u3001\u94FE\u63A5\u548C\u73B0\u6709\u4F1A\u8BDD\u5931\u6548\u3002",
+  "guestOnline": "\u5728\u7EBF {count} \u53F0",
+  "guestRecent": "\u6700\u8FD1\u6D3B\u8DC3",
+  "guestOffline": "\u79BB\u7EBF",
+  "guestUnnamed": "\u672A\u547D\u540D\u8BBF\u5BA2",
+  "guestRemaining": "\u5269\u4F59\u7EA6 {minutes} \u5206\u949F",
+  "guestDisableLogin": "\u7981\u7528\u65B0\u767B\u5F55",
+  "guestEnableLogin": "\u5141\u8BB8\u65B0\u767B\u5F55",
+  "guestKick": "\u8E22\u4E0B\u7EBF",
+  "guestRevoke": "\u7ACB\u5373\u4F5C\u5E9F",
   "lanStarting": "\u4EE3\u7406\u672A\u5C31\u7EEA\u2026",
   "wanTitle": "\u{1F310} \u516C\u7F51\uFF08\u4EBA\u5728\u5916\u9762\uFF09",
   "wanHint": "\u4EFB\u4F55\u7F51\u7EDC\u626B\u7801\u5373\u7528\uFF08URL \u6BCF\u6B21\u91CD\u542F\u81EA\u52A8\u6362\u65B0\uFF09",
@@ -1551,12 +1587,6 @@ var en2 = {
   "lanAddress": "LAN address",
   "lanAddressAuto": "Auto (recommended)",
   "lanAddressHint": "Advanced option: usually no change needed; select manually when accessing through Tailscale/VPN",
-  "proxyPort": "DSH Pocket proxy port",
-  "proxyPortAuto": "Auto (starts at 3081)",
-  "proxyPortHint": "Only changes the phone-access proxy; local DSH stays at 127.0.0.1:3080. Saving briefly restarts the proxy and updates QR codes.",
-  "proxyPortSave": "Save and restart",
-  "proxyPortBusy": "Switching port\u2026",
-  "proxyPortActual": "Actual port: {port}",
   "lanPin": "LAN access PIN",
   "on": "On",
   "off": "Off",
@@ -1583,6 +1613,44 @@ var en2 = {
   "virtualPinOffTitle": "Turn off the Virtual LAN PIN?",
   "virtualPinOffBody": "Devices that joined the same Tailscale / ZeroTier network can enter DSH directly. Confirm that you control all of those devices.",
   "virtualPinOffConfirm": "Turn off anyway",
+  "guestTitle": "\u{1F465} Temporary guest access",
+  "guestHint": "Create expiring PINs, see activity, disable sign-ins, sign sessions out, or revoke access. Turning this feature off ends all guest sessions.",
+  "guestFullAccessWarning": "\u26A0 Guests have full DSH capabilities. Share only with people you trust. With Cloudflare Access enabled, guests must pass edge authentication first.",
+  "guestLabel": "Label (e.g. coworker)",
+  "guestMinutes": "minutes",
+  "guestHours": "hours",
+  "guestScopeBoth": "All entrances",
+  "guestScopeLan": "LAN / virtual LAN",
+  "guestScopePublic": "Public only",
+  "guestCreate": "Create guest PIN",
+  "guestPinOnce": "Copy now: this PIN is shown only once",
+  "guestCopy": "Copy PIN",
+  "guestShare": "Share link",
+  "guestShareTitle": "Share temporary guest access",
+  "guestShareHint": "Generating this link invalidates the previous share link. The PIN is not included in the URL.",
+  "guestShareText": "Temporary DSH Pocket guest access",
+  "guestShareLan": "LAN / virtual LAN link",
+  "guestSharePublic": "Public link",
+  "guestShareFixed": "Fixed-domain public link",
+  "guestSystemShare": "Share",
+  "guestCopyLink": "Copy link",
+  "guestShareUnavailable": "No matching address is available. Enable the corresponding LAN or public entrance first.",
+  "guestScopeExcluded": "This entrance is outside the guest grant scope.",
+  "guestLanDisabled": "LAN access is off. Enable it to create this link.",
+  "guestPublicDisabled": "No public tunnel is running. Start a quick tunnel or fixed domain to create an external link.",
+  "guestAddressUnavailable": "This entrance address is not ready yet.",
+  "guestCopied": "\u2713 Copied to clipboard",
+  "guestCopyFailed": "Copy failed. Long-press or select the link above and copy it manually.",
+  "guestShareSecurity": "\u{1F510} The link itself is a temporary credential. Share it only with someone you trust. Revoking access invalidates the PIN, link, and active sessions.",
+  "guestOnline": "{count} online",
+  "guestRecent": "Recently active",
+  "guestOffline": "Offline",
+  "guestUnnamed": "Unnamed guest",
+  "guestRemaining": "About {minutes} minutes left",
+  "guestDisableLogin": "Disable sign-ins",
+  "guestEnableLogin": "Allow sign-ins",
+  "guestKick": "Sign out",
+  "guestRevoke": "Revoke now",
   "lanStarting": "Proxy starting\u2026",
   "wanTitle": "\u{1F310} Anywhere (public)",
   "wanHint": "Scan from any network (the URL changes on every restart)",
@@ -1701,14 +1769,16 @@ var styles = {
 function PocketSettingsTab({ rpcCall, t }) {
   const [status, setStatus] = (0, import_react2.useState)(null);
   const [busy, setBusy] = (0, import_react2.useState)(false);
-  const [proxyPortInput, setProxyPortInput] = (0, import_react2.useState)("");
-  const [proxyPortBusy, setProxyPortBusy] = (0, import_react2.useState)(false);
   const [error, setError] = (0, import_react2.useState)(null);
   const [tunnelState, setTunnelState] = (0, import_react2.useState)(null);
   const [restartNotice, setRestartNotice] = (0, import_react2.useState)(false);
   const [updateInfo, setUpdateInfo] = (0, import_react2.useState)(null);
   const [isDesktop, setIsDesktop] = (0, import_react2.useState)(false);
   const [now, setNow] = (0, import_react2.useState)(Date.now());
+  const [guestForm, setGuestForm] = (0, import_react2.useState)({ label: "", durationMinutes: 60, scope: "both" });
+  const [newGuestPin, setNewGuestPin] = (0, import_react2.useState)(null);
+  const [guestShare, setGuestShare] = (0, import_react2.useState)(null);
+  const [copyNotice, setCopyNotice] = (0, import_react2.useState)("");
   (0, import_react2.useEffect)(() => {
     const t2 = setInterval(() => setNow(Date.now()), 1e3);
     return () => clearInterval(t2);
@@ -1725,7 +1795,6 @@ function PocketSettingsTab({ rpcCall, t }) {
       setStatus(s);
       setTunnelState(s.tunnelState ?? null);
       setFixedHostnameInput((cur) => cur === "" ? s.fixed?.hostname ?? "" : cur);
-      setProxyPortInput((cur) => cur === "" ? s.proxyPortSetting == null ? "" : String(s.proxyPortSetting) : cur);
       if (s.desktop) setIsDesktop(true);
       if (s.restartNotice) {
         setRestartNotice(true);
@@ -1949,18 +2018,6 @@ function PocketSettingsTab({ rpcCall, t }) {
       setError(err.message);
     }
   };
-  const saveProxyPort = async (value = proxyPortInput) => {
-    setProxyPortBusy(true);
-    try {
-      const next = await call(POCKET_ENDPOINTS.proxySetPort, { port: value });
-      setStatus(next);
-      setProxyPortInput(next.proxyPortSetting == null ? "" : String(next.proxyPortSetting));
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setProxyPortBusy(false);
-    }
-  };
   const useVirtualNetwork = async (ip) => {
     try {
       setStatus(await call(POCKET_ENDPOINTS.virtualUse, { ip }));
@@ -1973,6 +2030,88 @@ function PocketSettingsTab({ rpcCall, t }) {
       setStatus(await call(POCKET_ENDPOINTS.virtualRefresh, {}));
     } catch (err) {
       setError(err.message);
+    }
+  };
+  const guestAction = async (endpoint, payload = {}) => {
+    try {
+      const r = await call(endpoint, payload);
+      setStatus((s) => ({ ...s, guestAccess: r?.grants ? r : s?.guestAccess }));
+      return r;
+    } catch (err) {
+      setError(err.message);
+      return null;
+    }
+  };
+  const createGuest = async () => {
+    const r = await guestAction(POCKET_ENDPOINTS.guestCreate, guestForm);
+    if (r?.pin) {
+      setCopyNotice("");
+      setNewGuestPin({ pin: r.pin, expiresAt: r.grant.expiresAt });
+      setStatus((s) => ({ ...s, guestAccess: { ...s?.guestAccess ?? {}, grants: [...s?.guestAccess?.grants ?? [], r.grant] } }));
+      setGuestForm((f) => ({ ...f, label: "" }));
+    }
+  };
+  const createGuestShare = async (grant) => {
+    const r = await guestAction(POCKET_ENDPOINTS.guestCreateInvite, { id: grant.id });
+    if (!r?.secret) return;
+    const links = [];
+    const add = (kind, label, base, available, reason) => {
+      let url = "";
+      if (available && base) {
+        try {
+          url = `${new URL("/pocket-invite", base).toString()}#invite=${encodeURIComponent(r.secret)}`;
+        } catch {
+        }
+      }
+      links.push({ kind, label, url, available: !!url, reason });
+    };
+    const lanAllowed = grant.scope !== "public";
+    const publicAllowed = grant.scope !== "lan";
+    add(
+      "lan",
+      t("guestShareLan"),
+      status?.lanUrl,
+      lanAllowed && status?.lanEnabled !== false && !!status?.lanUrl,
+      !lanAllowed ? t("guestScopeExcluded") : status?.lanEnabled === false ? t("guestLanDisabled") : t("guestAddressUnavailable")
+    );
+    add(
+      "public",
+      status?.tunnelMode === "fixed" ? t("guestShareFixed") : t("guestSharePublic"),
+      status?.tunnelUrl,
+      publicAllowed && status?.tunnelRunning === true && !!status?.tunnelUrl,
+      !publicAllowed ? t("guestScopeExcluded") : t("guestPublicDisabled")
+    );
+    setCopyNotice("");
+    setGuestShare({ grant, links });
+  };
+  const copyText = async (value) => {
+    try {
+      if (navigator.clipboard?.writeText && globalThis.isSecureContext) {
+        await navigator.clipboard.writeText(value);
+      } else {
+        const area = document.createElement("textarea");
+        area.value = value;
+        area.setAttribute("readonly", "");
+        area.style.cssText = "position:fixed;left:-9999px;top:0";
+        document.body.appendChild(area);
+        area.select();
+        area.setSelectionRange(0, area.value.length);
+        const copied = document.execCommand("copy");
+        document.body.removeChild(area);
+        if (!copied) throw new Error("copy unavailable");
+      }
+      setCopyNotice(t("guestCopied"));
+      return true;
+    } catch {
+      setCopyNotice(t("guestCopyFailed"));
+      return false;
+    }
+  };
+  const shareGuestLink = async (item) => {
+    try {
+      if (navigator.share) await navigator.share({ title: t("guestShareTitle"), text: t("guestShareText"), url: item.url });
+      else await copyText(item.url);
+    } catch {
     }
   };
   const [customPin, setCustomPin] = (0, import_react2.useState)(null);
@@ -2142,29 +2281,6 @@ function PocketSettingsTab({ rpcCall, t }) {
           )
         ),
         (0, import_react2.createElement)("div", { style: { ...styles.muted, marginTop: 2 } }, t("lanAddressHint")),
-        (0, import_react2.createElement)(
-          "div",
-          { style: { marginTop: 10, paddingTop: 8, borderTop: "1px dashed var(--dsw-alias-border-l2,#e5e7eb)" } },
-          (0, import_react2.createElement)("div", { style: { fontSize: 12, color: "var(--dsw-alias-label-secondary,#6b7280)", marginBottom: 5 } }, t("proxyPort")),
-          (0, import_react2.createElement)(
-            "div",
-            { style: { display: "flex", gap: 6, alignItems: "center" } },
-            (0, import_react2.createElement)("input", {
-              style: { width: 96, font: "inherit", height: 30, padding: "0 8px", borderRadius: 8, border: "1px solid var(--dsw-alias-border-l2,#d1d5db)", background: "var(--dsw-alias-bg-layer-1,#fff)", color: "var(--dsw-alias-label-primary,inherit)" },
-              placeholder: t("proxyPortAuto"),
-              inputMode: "numeric",
-              value: proxyPortInput,
-              onChange: (e) => setProxyPortInput(e.target.value.replace(/\D/g, "")),
-              onKeyDown: (e) => {
-                if (e.key === "Enter") void saveProxyPort();
-              }
-            }),
-            (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 30, padding: "0 10px", fontSize: 12 }, disabled: proxyPortBusy, onClick: () => saveProxyPort() }, proxyPortBusy ? t("proxyPortBusy") : t("proxyPortSave")),
-            status?.proxyPortSetting != null ? (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 30, padding: "0 10px", fontSize: 12 }, disabled: proxyPortBusy, onClick: () => saveProxyPort("") }, t("proxyPortAuto")) : null
-          ),
-          (0, import_react2.createElement)("div", { style: { ...styles.muted, marginTop: 4 } }, t("proxyPortHint")),
-          status?.proxyPort ? (0, import_react2.createElement)("div", { style: { ...styles.muted, marginTop: 2 } }, fmt(t, "proxyPortActual", { port: status.proxyPort })) : null
-        ),
         // 访问密码开关（issue #24）：默认开启；关闭后扫码直连（仅同一局域网设备可访问）
         (0, import_react2.createElement)(
           "div",
@@ -2452,7 +2568,94 @@ function PocketSettingsTab({ rpcCall, t }) {
         )
       )
     ),
+    // 临时访客 PIN：授权记录持久化，会话/在线连接由当前进程管理。
+    (0, import_react2.createElement)(
+      "div",
+      { style: styles.block },
+      (0, import_react2.createElement)(
+        "div",
+        { style: { display: "flex", alignItems: "center", gap: 8 } },
+        (0, import_react2.createElement)("strong", { style: { fontSize: 13 } }, t("guestTitle")),
+        (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 28, padding: "0 12px", marginLeft: "auto" }, onClick: () => guestAction(POCKET_ENDPOINTS.guestSetEnabled, { on: status?.guestAccess?.enabled !== true }) }, status?.guestAccess?.enabled === true ? t("on") : t("off"))
+      ),
+      (0, import_react2.createElement)("div", { style: styles.muted }, t("guestHint")),
+      (0, import_react2.createElement)("div", { style: styles.warn, marginTop: 4 }, t("guestFullAccessWarning")),
+      newGuestPin ? (0, import_react2.createElement)(
+        "div",
+        { style: { marginTop: 10, padding: 10, borderRadius: 8, background: "rgba(22,163,74,.08)", color: "var(--dsw-alias-state-success-primary,#15803d)" } },
+        (0, import_react2.createElement)("div", { style: { fontSize: 12 } }, t("guestPinOnce")),
+        (0, import_react2.createElement)("div", { style: { fontSize: 22, fontWeight: 700, letterSpacing: 4 } }, newGuestPin.pin),
+        (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 28 }, onClick: () => copyText(newGuestPin.pin) }, t("guestCopy")),
+        (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 28, marginLeft: 6 }, onClick: () => setNewGuestPin(null) }, t("ok")),
+        copyNotice ? (0, import_react2.createElement)("div", { style: { marginTop: 5, fontSize: 11 } }, copyNotice) : null
+      ) : null,
+      status?.guestAccess?.enabled === true ? (0, import_react2.createElement)(
+        "div",
+        { style: { marginTop: 10 } },
+        (0, import_react2.createElement)(
+          "div",
+          { style: { display: "grid", gridTemplateColumns: "1fr 110px 110px", gap: 6 } },
+          (0, import_react2.createElement)("input", { style: { minWidth: 0, height: 30, border: "1px solid var(--dsw-alias-border-l2,#d1d5db)", borderRadius: 8, padding: "0 8px" }, placeholder: t("guestLabel"), maxLength: 40, value: guestForm.label, onChange: (e) => setGuestForm((f) => ({ ...f, label: e.target.value })) }),
+          (0, import_react2.createElement)(
+            "select",
+            { style: { height: 32, borderRadius: 8 }, value: guestForm.durationMinutes, onChange: (e) => setGuestForm((f) => ({ ...f, durationMinutes: Number(e.target.value) })) },
+            [15, 60, 240, 1440].map((m) => (0, import_react2.createElement)("option", { key: m, value: m }, m < 60 ? `${m} ${t("guestMinutes")}` : `${m / 60} ${t("guestHours")}`))
+          ),
+          (0, import_react2.createElement)(
+            "select",
+            { style: { height: 32, borderRadius: 8 }, value: guestForm.scope, onChange: (e) => setGuestForm((f) => ({ ...f, scope: e.target.value })) },
+            (0, import_react2.createElement)("option", { value: "both" }, t("guestScopeBoth")),
+            (0, import_react2.createElement)("option", { value: "lan" }, t("guestScopeLan")),
+            (0, import_react2.createElement)("option", { value: "public" }, t("guestScopePublic"))
+          )
+        ),
+        (0, import_react2.createElement)("button", { style: { ...styles.primary, height: 32, marginTop: 8 }, onClick: createGuest }, t("guestCreate"))
+      ) : null,
+      (status?.guestAccess?.grants ?? []).filter((g) => g.state !== "expired" && g.state !== "revoked").map((g) => {
+        const seconds = Math.max(0, Math.floor((g.expiresAt - now) / 1e3));
+        const activeText = g.online > 0 ? fmt(t, "guestOnline", { count: g.online }) : g.recent > 0 ? t("guestRecent") : t("guestOffline");
+        return (0, import_react2.createElement)(
+          "div",
+          { key: g.id, style: { marginTop: 10, padding: 10, border: "1px solid var(--dsw-alias-border-l2,#e5e7eb)", borderRadius: 8 } },
+          (0, import_react2.createElement)("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, (0, import_react2.createElement)("strong", { style: { fontSize: 12 } }, g.label || t("guestUnnamed")), (0, import_react2.createElement)("span", { style: { marginLeft: "auto", fontSize: 11, color: g.online ? "var(--dsw-alias-state-success-primary,#15803d)" : "var(--dsw-alias-label-tertiary,#8b93a1)" } }, activeText)),
+          (0, import_react2.createElement)("div", { style: styles.muted }, `${g.scope === "both" ? t("guestScopeBoth") : g.scope === "lan" ? t("guestScopeLan") : t("guestScopePublic")} \xB7 ${fmt(t, "guestRemaining", { minutes: Math.ceil(seconds / 60) })}`),
+          (0, import_react2.createElement)(
+            "div",
+            { style: { display: "flex", gap: 6, marginTop: 7, flexWrap: "wrap" } },
+            (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 27, padding: "0 10px", fontSize: 11, color: "var(--dsw-alias-brand-primary,#4f6ef7)" }, onClick: () => createGuestShare(g) }, t("guestShare")),
+            (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 27, padding: "0 10px", fontSize: 11 }, onClick: () => guestAction(POCKET_ENDPOINTS.guestSetLogin, { id: g.id, on: !g.loginEnabled }) }, g.loginEnabled ? t("guestDisableLogin") : t("guestEnableLogin")),
+            (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 27, padding: "0 10px", fontSize: 11 }, onClick: () => guestAction(POCKET_ENDPOINTS.guestKick, { id: g.id }) }, t("guestKick")),
+            (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 27, padding: "0 10px", fontSize: 11, color: "var(--dsw-alias-state-error-primary,#dc2626)" }, onClick: () => guestAction(POCKET_ENDPOINTS.guestRevoke, { id: g.id }) }, t("guestRevoke"))
+          )
+        );
+      })
+    ),
     error ? (0, import_react2.createElement)("div", { style: { color: "var(--dsw-alias-state-error-primary,#dc2626)", fontSize: 12, marginTop: 8 } }, `\u274C ${error}`) : null,
+    guestShare ? (0, import_react2.createElement)(
+      "div",
+      { style: { position: "fixed", inset: 0, zIndex: 1e4, background: "rgba(0,0,0,.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 } },
+      (0, import_react2.createElement)(
+        "div",
+        { style: { background: "var(--dsw-alias-bg-layer-1,#fff)", borderRadius: 12, maxWidth: 430, width: "100%", padding: "20px 22px", boxShadow: "0 8px 32px rgba(0,0,0,.18)" } },
+        (0, import_react2.createElement)("div", { style: { fontWeight: 600, fontSize: 15 } }, t("guestShareTitle")),
+        (0, import_react2.createElement)("div", { style: { ...styles.muted, marginTop: 5 } }, t("guestShareHint")),
+        guestShare.links.map((item) => (0, import_react2.createElement)(
+          "div",
+          { key: item.kind, style: { marginTop: 10, padding: 9, border: "1px solid var(--dsw-alias-border-l2,#e5e7eb)", borderRadius: 8, opacity: item.available ? 1 : 0.72 } },
+          (0, import_react2.createElement)("div", { style: { fontSize: 12, fontWeight: 600 } }, item.label),
+          item.available ? (0, import_react2.createElement)(
+            "div",
+            null,
+            (0, import_react2.createElement)("div", { style: { ...styles.code, fontSize: 10, margin: "4px 0 7px" } }, item.url),
+            (0, import_react2.createElement)("button", { style: { ...styles.primary, height: 28, padding: "0 12px" }, onClick: () => shareGuestLink(item) }, navigator.share ? t("guestSystemShare") : t("guestCopyLink")),
+            (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 28, padding: "0 12px", marginLeft: 6 }, onClick: () => copyText(item.url) }, t("guestCopyLink"))
+          ) : (0, import_react2.createElement)("div", { style: { ...styles.warn, marginTop: 5 } }, item.reason)
+        )),
+        copyNotice ? (0, import_react2.createElement)("div", { style: { marginTop: 8, fontSize: 12, color: copyNotice === t("guestCopied") ? "var(--dsw-alias-state-success-primary,#15803d)" : "var(--dsw-alias-state-error-primary,#dc2626)" } }, copyNotice) : null,
+        (0, import_react2.createElement)("div", { style: { ...styles.warn, marginTop: 10 } }, t("guestShareSecurity")),
+        (0, import_react2.createElement)("button", { style: { ...styles.btn, width: "100%", marginTop: 14 }, onClick: () => setGuestShare(null) }, t("ok"))
+      )
+    ) : null,
     // 局域网访问开关确认弹框（关闭/打开时弹窗提醒）
     lanToggleOpen !== null ? (0, import_react2.createElement)(
       "div",

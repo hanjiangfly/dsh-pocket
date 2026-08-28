@@ -12,7 +12,6 @@ export const POCKET_ENDPOINTS = Object.freeze({
   lanAuthSetEnabled: 'lanAuth.setEnabled',
   lanSetOverride: 'lan.setOverride',
   lanSetEnabled: 'lan.setEnabled',
-  proxySetPort: 'proxy.setPort',
   virtualUse: 'virtual.use',
   virtualRefresh: 'virtual.refresh',
   pinSetCustom: 'pin.setCustom',
@@ -22,6 +21,12 @@ export const POCKET_ENDPOINTS = Object.freeze({
   fixedSetPinAlways: 'fixed.setPinAlways',
   fixedLogin: 'fixed.login',
   fixedSetup: 'fixed.setup',
+  guestCreate: 'guest.create',
+  guestCreateInvite: 'guest.createInvite',
+  guestSetEnabled: 'guest.setEnabled',
+  guestSetLogin: 'guest.setLogin',
+  guestKick: 'guest.kick',
+  guestRevoke: 'guest.revoke',
 });
 
 /** 语义化版本比较：a > b 返回正数，相等 0，a < b 负数（数字段 + 预发布后缀）。 */
@@ -63,7 +68,6 @@ export function redactStatus(s) {
   return {
     proxyRunning: s?.proxyRunning === true,
     proxyPort: s?.proxyPort ?? null,
-    proxyPortSetting: s?.proxyPortSetting ?? null,
     lanUrl: s?.lanUrl ?? null,
     lanQr: s?.lanQr ?? null,
     lanCandidates: Array.isArray(s?.lanCandidates) ? s.lanCandidates : [],

@@ -547,6 +547,46 @@ test('访问令牌认证（issue #13）：公网需登录、cookie 放行、局�
   await new Promise((r) => up.close(r));
 });
 
+test('临时访客 PIN：独立短期 cookie 放行，踢下线后同一 cookie 立即失效', async () => {
+  const http = await import('node:http');
+  const { createGuestAccessManager } = await import('../lib/guest-access.mjs');
+  const { mkdtempSync, rmSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const { tmpdir } = await import('node:os');
+  const dir = mkdtempSync(join(tmpdir(), 'dsh-pocket-guest-proxy-'));
+  const up = createServer((_req, res) => { res.writeHead(200); res.end('dsh'); });
+  await new Promise((r) => up.listen(0, '127.0.0.1', r));
+  const guests = createGuestAccessManager({ path: join(dir, 'guest.json'), isPublicHost: () => true });
+  const made = guests.create({ durationMinutes: 15, scope: 'public' });
+  const proxy = await createPocketProxy({
+    port: 0, host: '127.0.0.1', upstream: { host: '127.0.0.1', port: up.address().port },
+    isPublicHost: () => true,
+    auth: { getToken: () => '12345678', isProtected: () => true, sessionKey: 'owner-key', guestAccess: guests },
+  });
+  const raw = (headers, method = 'GET', body, path = '/') => new Promise((resolve, reject) => {
+    const req = http.request({ host: '127.0.0.1', port: proxy.port, path, method, headers }, (res) => {
+      const chunks = []; res.on('data', (c) => chunks.push(c));
+      res.on('end', () => resolve({ status: res.statusCode, headers: res.headers, body: Buffer.concat(chunks).toString() }));
+    });
+    req.on('error', reject); if (body) req.write(body); req.end();
+  });
+  try {
+    const login = await raw({ Host: 'public.example', 'Content-Type': 'application/x-www-form-urlencoded' }, 'POST', `token=${made.pin}`, '/pocket-login');
+    assert.equal(login.status, 302);
+    const cookie = login.headers['set-cookie'][0].split(';')[0];
+    assert.match(cookie, /^dsh_pocket_guest=/);
+    assert.equal((await raw({ Host: 'public.example', Cookie: cookie, Accept: 'application/json' }, 'GET', null, '/api/x')).status, 200);
+    const invite = guests.createInvite(made.grant.id);
+    const inviteLogin = await raw({ Host: 'public.example', 'Content-Type': 'application/x-www-form-urlencoded' }, 'POST', `invite=${invite.secret}`, '/pocket-login');
+    assert.equal(inviteLogin.status, 302, '邀请密钥可换取访客会话');
+    assert.match(inviteLogin.headers['set-cookie'][0], /^dsh_pocket_guest=/);
+    guests.kick(made.grant.id);
+    assert.equal((await raw({ Host: 'public.example', Cookie: cookie, Accept: 'application/json' }, 'GET', null, '/api/x')).status, 401);
+  } finally {
+    await proxy.close(); guests.dispose(); await new Promise((r) => up.close(r)); rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('会话保持（issue #33）：登录 cookie 绑定进程 sessionKey，持久 30 天；重启后旧 cookie 失效需重新输入', async () => {
   const http = await import('node:http');
   const { createHash } = await import('node:crypto');

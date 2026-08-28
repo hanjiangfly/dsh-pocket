@@ -47,14 +47,16 @@ const styles = {
 function PocketSettingsTab({ rpcCall, t }) {
   const [status, setStatus] = useState(null);
   const [busy, setBusy] = useState(false);
-  const [proxyPortInput, setProxyPortInput] = useState('');
-  const [proxyPortBusy, setProxyPortBusy] = useState(false);
   const [error, setError] = useState(null);
   const [tunnelState, setTunnelState] = useState(null); // 隧道进度 {phase, detail, startedAt}
   const [restartNotice, setRestartNotice] = useState(false); // 重启后提示
   const [updateInfo, setUpdateInfo] = useState(null); // { current, latest, updating, result, startedAt } | null
   const [isDesktop, setIsDesktop] = useState(false); // DSH Desktop（Electron）环境：更新/重启由桌面版管理
   const [now, setNow] = useState(Date.now()); // 每秒 tick，驱动倒计时
+  const [guestForm, setGuestForm] = useState({ label: '', durationMinutes: 60, scope: 'both' });
+  const [newGuestPin, setNewGuestPin] = useState(null);
+  const [guestShare, setGuestShare] = useState(null);
+  const [copyNotice, setCopyNotice] = useState('');
 
   // 进行中操作的「已等待 X 秒」倒计时
   useEffect(() => {
@@ -75,7 +77,6 @@ function PocketSettingsTab({ rpcCall, t }) {
       setStatus(s);
       setTunnelState(s.tunnelState ?? null);
       setFixedHostnameInput((cur) => cur === '' ? (s.fixed?.hostname ?? '') : cur); // 首次加载预填域名
-      setProxyPortInput((cur) => cur === '' ? (s.proxyPortSetting == null ? '' : String(s.proxyPortSetting)) : cur);
       if (s.desktop) setIsDesktop(true);
       if (s.restartNotice) {
         // 新进程确认起来了：显示一次「已重启」，清掉旧的更新横幅（单状态，不并存），
@@ -325,18 +326,6 @@ function PocketSettingsTab({ rpcCall, t }) {
       setError(err.message);
     }
   };
-  const saveProxyPort = async (value = proxyPortInput) => {
-    setProxyPortBusy(true);
-    try {
-      const next = await call(POCKET_ENDPOINTS.proxySetPort, { port: value });
-      setStatus(next);
-      setProxyPortInput(next.proxyPortSetting == null ? '' : String(next.proxyPortSetting));
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setProxyPortBusy(false);
-    }
-  };
   const useVirtualNetwork = async (ip) => {
     try {
       setStatus(await call(POCKET_ENDPOINTS.virtualUse, { ip }));
@@ -350,6 +339,65 @@ function PocketSettingsTab({ rpcCall, t }) {
     } catch (err) {
       setError(err.message);
     }
+  };
+  const guestAction = async (endpoint, payload = {}) => {
+    try {
+      const r = await call(endpoint, payload);
+      setStatus((s) => ({ ...s, guestAccess: r?.grants ? r : s?.guestAccess }));
+      return r;
+    } catch (err) { setError(err.message); return null; }
+  };
+  const createGuest = async () => {
+    const r = await guestAction(POCKET_ENDPOINTS.guestCreate, guestForm);
+    if (r?.pin) {
+      setCopyNotice('');
+      setNewGuestPin({ pin: r.pin, expiresAt: r.grant.expiresAt });
+      setStatus((s) => ({ ...s, guestAccess: { ...(s?.guestAccess ?? {}), grants: [...(s?.guestAccess?.grants ?? []), r.grant] } }));
+      setGuestForm((f) => ({ ...f, label: '' }));
+    }
+  };
+  const createGuestShare = async (grant) => {
+    const r = await guestAction(POCKET_ENDPOINTS.guestCreateInvite, { id: grant.id });
+    if (!r?.secret) return;
+    const links = [];
+    const add = (kind, label, base, available, reason) => {
+      let url = '';
+      if (available && base) {
+        try { url = `${new URL('/pocket-invite', base).toString()}#invite=${encodeURIComponent(r.secret)}`; } catch { /* 忽略无效 URL */ }
+      }
+      links.push({ kind, label, url, available: !!url, reason });
+    };
+    const lanAllowed = grant.scope !== 'public';
+    const publicAllowed = grant.scope !== 'lan';
+    add('lan', t('guestShareLan'), status?.lanUrl, lanAllowed && status?.lanEnabled !== false && !!status?.lanUrl,
+      !lanAllowed ? t('guestScopeExcluded') : status?.lanEnabled === false ? t('guestLanDisabled') : t('guestAddressUnavailable'));
+    add('public', status?.tunnelMode === 'fixed' ? t('guestShareFixed') : t('guestSharePublic'), status?.tunnelUrl,
+      publicAllowed && status?.tunnelRunning === true && !!status?.tunnelUrl,
+      !publicAllowed ? t('guestScopeExcluded') : t('guestPublicDisabled'));
+    setCopyNotice('');
+    setGuestShare({ grant, links });
+  };
+  const copyText = async (value) => {
+    try {
+      if (navigator.clipboard?.writeText && globalThis.isSecureContext) {
+        await navigator.clipboard.writeText(value);
+      } else {
+        const area = document.createElement('textarea');
+        area.value = value; area.setAttribute('readonly', '');
+        area.style.cssText = 'position:fixed;left:-9999px;top:0';
+        document.body.appendChild(area); area.select(); area.setSelectionRange(0, area.value.length);
+        const copied = document.execCommand('copy'); document.body.removeChild(area);
+        if (!copied) throw new Error('copy unavailable');
+      }
+      setCopyNotice(t('guestCopied'));
+      return true;
+    } catch { setCopyNotice(t('guestCopyFailed')); return false; }
+  };
+  const shareGuestLink = async (item) => {
+    try {
+      if (navigator.share) await navigator.share({ title: t('guestShareTitle'), text: t('guestShareText'), url: item.url });
+      else await copyText(item.url);
+    } catch { /* 用户取消系统分享时静默 */ }
   };
 
   // 自定义访问密码（issue #33）：公网/局域网各自设固定 8 位数字；自定义后公网不再自动轮换。
@@ -517,21 +565,6 @@ function PocketSettingsTab({ rpcCall, t }) {
             ),
           ),
           h('div', { style: { ...styles.muted, marginTop: 2 } }, t('lanAddressHint')),
-          h('div', { style: { marginTop: 10, paddingTop: 8, borderTop: '1px dashed var(--dsw-alias-border-l2,#e5e7eb)' } },
-            h('div', { style: { fontSize: 12, color: 'var(--dsw-alias-label-secondary,#6b7280)', marginBottom: 5 } }, t('proxyPort')),
-            h('div', { style: { display: 'flex', gap: 6, alignItems: 'center' } },
-              h('input', {
-                style: { width: 96, font: 'inherit', height: 30, padding: '0 8px', borderRadius: 8, border: '1px solid var(--dsw-alias-border-l2,#d1d5db)', background: 'var(--dsw-alias-bg-layer-1,#fff)', color: 'var(--dsw-alias-label-primary,inherit)' },
-                placeholder: t('proxyPortAuto'), inputMode: 'numeric', value: proxyPortInput,
-                onChange: (e) => setProxyPortInput(e.target.value.replace(/\D/g, '')),
-                onKeyDown: (e) => { if (e.key === 'Enter') void saveProxyPort(); },
-              }),
-              h('button', { style: { ...styles.btn, height: 30, padding: '0 10px', fontSize: 12 }, disabled: proxyPortBusy, onClick: () => saveProxyPort() }, proxyPortBusy ? t('proxyPortBusy') : t('proxyPortSave')),
-              status?.proxyPortSetting != null ? h('button', { style: { ...styles.btn, height: 30, padding: '0 10px', fontSize: 12 }, disabled: proxyPortBusy, onClick: () => saveProxyPort('') }, t('proxyPortAuto')) : null,
-            ),
-            h('div', { style: { ...styles.muted, marginTop: 4 } }, t('proxyPortHint')),
-            status?.proxyPort ? h('div', { style: { ...styles.muted, marginTop: 2 } }, fmt(t, 'proxyPortActual', { port: status.proxyPort })) : null,
-          ),
           // 访问密码开关（issue #24）：默认开启；关闭后扫码直连（仅同一局域网设备可访问）
           h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 } },
             h('span', { style: { fontSize: 12, color: 'var(--dsw-alias-label-secondary,#6b7280)' } }, t('lanPin')),
@@ -783,7 +816,68 @@ function PocketSettingsTab({ rpcCall, t }) {
       ),
     ),
 
+    // 临时访客 PIN：授权记录持久化，会话/在线连接由当前进程管理。
+    h('div', { style: styles.block },
+      h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+        h('strong', { style: { fontSize: 13 } }, t('guestTitle')),
+        h('button', { style: { ...styles.btn, height: 28, padding: '0 12px', marginLeft: 'auto' }, onClick: () => guestAction(POCKET_ENDPOINTS.guestSetEnabled, { on: status?.guestAccess?.enabled !== true }) }, status?.guestAccess?.enabled === true ? t('on') : t('off')),
+      ),
+      h('div', { style: styles.muted }, t('guestHint')),
+      h('div', { style: styles.warn, marginTop: 4 }, t('guestFullAccessWarning')),
+      newGuestPin ? h('div', { style: { marginTop: 10, padding: 10, borderRadius: 8, background: 'rgba(22,163,74,.08)', color: 'var(--dsw-alias-state-success-primary,#15803d)' } },
+        h('div', { style: { fontSize: 12 } }, t('guestPinOnce')),
+        h('div', { style: { fontSize: 22, fontWeight: 700, letterSpacing: 4 } }, newGuestPin.pin),
+        h('button', { style: { ...styles.btn, height: 28 }, onClick: () => copyText(newGuestPin.pin) }, t('guestCopy')),
+        h('button', { style: { ...styles.btn, height: 28, marginLeft: 6 }, onClick: () => setNewGuestPin(null) }, t('ok')),
+        copyNotice ? h('div', { style: { marginTop: 5, fontSize: 11 } }, copyNotice) : null,
+      ) : null,
+      status?.guestAccess?.enabled === true ? h('div', { style: { marginTop: 10 } },
+        h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 110px 110px', gap: 6 } },
+          h('input', { style: { minWidth: 0, height: 30, border: '1px solid var(--dsw-alias-border-l2,#d1d5db)', borderRadius: 8, padding: '0 8px' }, placeholder: t('guestLabel'), maxLength: 40, value: guestForm.label, onChange: (e) => setGuestForm((f) => ({ ...f, label: e.target.value })) }),
+          h('select', { style: { height: 32, borderRadius: 8 }, value: guestForm.durationMinutes, onChange: (e) => setGuestForm((f) => ({ ...f, durationMinutes: Number(e.target.value) })) },
+            [15, 60, 240, 1440].map((m) => h('option', { key: m, value: m }, m < 60 ? `${m} ${t('guestMinutes')}` : `${m / 60} ${t('guestHours')}`))),
+          h('select', { style: { height: 32, borderRadius: 8 }, value: guestForm.scope, onChange: (e) => setGuestForm((f) => ({ ...f, scope: e.target.value })) },
+            h('option', { value: 'both' }, t('guestScopeBoth')), h('option', { value: 'lan' }, t('guestScopeLan')), h('option', { value: 'public' }, t('guestScopePublic'))),
+        ),
+        h('button', { style: { ...styles.primary, height: 32, marginTop: 8 }, onClick: createGuest }, t('guestCreate')),
+      ) : null,
+      (status?.guestAccess?.grants ?? []).filter((g) => g.state !== 'expired' && g.state !== 'revoked').map((g) => {
+        const seconds = Math.max(0, Math.floor((g.expiresAt - now) / 1000));
+        const activeText = g.online > 0 ? fmt(t, 'guestOnline', { count: g.online }) : (g.recent > 0 ? t('guestRecent') : t('guestOffline'));
+        return h('div', { key: g.id, style: { marginTop: 10, padding: 10, border: '1px solid var(--dsw-alias-border-l2,#e5e7eb)', borderRadius: 8 } },
+          h('div', { style: { display: 'flex', gap: 8, alignItems: 'center' } }, h('strong', { style: { fontSize: 12 } }, g.label || t('guestUnnamed')), h('span', { style: { marginLeft: 'auto', fontSize: 11, color: g.online ? 'var(--dsw-alias-state-success-primary,#15803d)' : 'var(--dsw-alias-label-tertiary,#8b93a1)' } }, activeText)),
+          h('div', { style: styles.muted }, `${g.scope === 'both' ? t('guestScopeBoth') : g.scope === 'lan' ? t('guestScopeLan') : t('guestScopePublic')} · ${fmt(t, 'guestRemaining', { minutes: Math.ceil(seconds / 60) })}`),
+          h('div', { style: { display: 'flex', gap: 6, marginTop: 7, flexWrap: 'wrap' } },
+            h('button', { style: { ...styles.btn, height: 27, padding: '0 10px', fontSize: 11, color: 'var(--dsw-alias-brand-primary,#4f6ef7)' }, onClick: () => createGuestShare(g) }, t('guestShare')),
+            h('button', { style: { ...styles.btn, height: 27, padding: '0 10px', fontSize: 11 }, onClick: () => guestAction(POCKET_ENDPOINTS.guestSetLogin, { id: g.id, on: !g.loginEnabled }) }, g.loginEnabled ? t('guestDisableLogin') : t('guestEnableLogin')),
+            h('button', { style: { ...styles.btn, height: 27, padding: '0 10px', fontSize: 11 }, onClick: () => guestAction(POCKET_ENDPOINTS.guestKick, { id: g.id }) }, t('guestKick')),
+            h('button', { style: { ...styles.btn, height: 27, padding: '0 10px', fontSize: 11, color: 'var(--dsw-alias-state-error-primary,#dc2626)' }, onClick: () => guestAction(POCKET_ENDPOINTS.guestRevoke, { id: g.id }) }, t('guestRevoke')),
+          ),
+        );
+      }),
+    ),
+
     error ? h('div', { style: { color: 'var(--dsw-alias-state-error-primary,#dc2626)', fontSize: 12, marginTop: 8 } }, `❌ ${error}`) : null,
+
+    guestShare ? h('div', { style: { position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 } },
+      h('div', { style: { background: 'var(--dsw-alias-bg-layer-1,#fff)', borderRadius: 12, maxWidth: 430, width: '100%', padding: '20px 22px', boxShadow: '0 8px 32px rgba(0,0,0,.18)' } },
+        h('div', { style: { fontWeight: 600, fontSize: 15 } }, t('guestShareTitle')),
+        h('div', { style: { ...styles.muted, marginTop: 5 } }, t('guestShareHint')),
+        guestShare.links.map((item) => h('div', { key: item.kind, style: { marginTop: 10, padding: 9, border: '1px solid var(--dsw-alias-border-l2,#e5e7eb)', borderRadius: 8, opacity: item.available ? 1 : .72 } },
+          h('div', { style: { fontSize: 12, fontWeight: 600 } }, item.label),
+          item.available
+            ? h('div', null,
+              h('div', { style: { ...styles.code, fontSize: 10, margin: '4px 0 7px' } }, item.url),
+              h('button', { style: { ...styles.primary, height: 28, padding: '0 12px' }, onClick: () => shareGuestLink(item) }, navigator.share ? t('guestSystemShare') : t('guestCopyLink')),
+              h('button', { style: { ...styles.btn, height: 28, padding: '0 12px', marginLeft: 6 }, onClick: () => copyText(item.url) }, t('guestCopyLink')),
+            )
+            : h('div', { style: { ...styles.warn, marginTop: 5 } }, item.reason),
+        )),
+        copyNotice ? h('div', { style: { marginTop: 8, fontSize: 12, color: copyNotice === t('guestCopied') ? 'var(--dsw-alias-state-success-primary,#15803d)' : 'var(--dsw-alias-state-error-primary,#dc2626)' } }, copyNotice) : null,
+        h('div', { style: { ...styles.warn, marginTop: 10 } }, t('guestShareSecurity')),
+        h('button', { style: { ...styles.btn, width: '100%', marginTop: 14 }, onClick: () => setGuestShare(null) }, t('ok')),
+      ),
+    ) : null,
 
     // 局域网访问开关确认弹框（关闭/打开时弹窗提醒）
     lanToggleOpen !== null ? h('div', { style: { position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 } },
