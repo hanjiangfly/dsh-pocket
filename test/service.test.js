@@ -492,6 +492,8 @@ test('lib/index.js 模块可加载，apply 可调用（防模块级 ReferenceErr
   assert.equal(typeof mod.apply, 'function');
   assert.equal(typeof mod.readRestartNotice, 'function');
   assert.equal(typeof mod.name, 'string');
+  const source = await (await import('node:fs/promises')).readFile(new URL('../lib/index.js', import.meta.url), 'utf8');
+  assert.match(source, /const pocketHome = internals\.home \?\? process\.env\.DSH_HOME/, '生产路径会为隧道恢复传入真实 DSH 数据目录');
 
   // apply 用最小 fake ctx 调用不应抛错（不启动真实代理：注入 stub service）
   const ctx = {
