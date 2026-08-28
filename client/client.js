@@ -45,6 +45,7 @@ var POCKET_ENDPOINTS = Object.freeze({
   status: "pocket.status",
   tunnelStart: "tunnel.start",
   tunnelStop: "tunnel.stop",
+  tunnelSetAutoRestore: "tunnel.setAutoRestore",
   version: "pocket.version",
   update: "pocket.update",
   restart: "pocket.restart",
@@ -1361,6 +1362,19 @@ var zh2 = {
   "section": "\u624B\u673A\u8BBF\u95EE",
   "title": "\u{1F4F1} \u624B\u673A\u8BBF\u95EE",
   "subtitle": "\u624B\u673A\u626B\u7801\u6253\u5F00\u7684\u5C31\u662F\u7535\u8111\u4E0A\u7684\u8FD9\u4E2A\u754C\u9762\uFF0C\u5B9E\u65F6\u540C\u6B65",
+  "tabAccess": "\u8BBF\u95EE\u72B6\u6001",
+  "tabNetwork": "\u7F51\u7EDC\u914D\u7F6E",
+  "tabSecurity": "\u5B89\u5168",
+  "autoRestoreTitle": "\u91CD\u542F DSH \u540E\u81EA\u52A8\u6062\u590D\u516C\u7F51\u8BBF\u95EE",
+  "autoRestoreHintOn": "\u5DF2\u6388\u6743\uFF1A\u5173\u95ED\u5F53\u524D\u516C\u7F51\u53EA\u5F71\u54CD\u672C\u6B21\uFF1B\u4E0B\u6B21\u91CD\u542F\u4ECD\u4F1A\u81EA\u52A8\u6062\u590D\u3002",
+  "autoRestoreHintOff": "\u9ED8\u8BA4\u5173\u95ED\uFF1A\u91CD\u542F DSH \u540E\u4E0D\u4F1A\u81EA\u52A8\u5F00\u542F\u516C\u7F51\u3002",
+  "autoRestoreRiskTitle": "\u5141\u8BB8\u91CD\u542F\u540E\u81EA\u52A8\u6062\u590D\u516C\u7F51\u8BBF\u95EE\uFF1F",
+  "autoRestoreRiskBody": "\u5F00\u542F\u540E\uFF0CDSH \u6BCF\u6B21\u91CD\u542F\u90FD\u4F1A\u6062\u590D\u4E0A\u6B21\u7684\u516C\u7F51\u6A21\u5F0F\u3002\u56FA\u5B9A\u57DF\u540D\u4F1A\u518D\u6B21\u4ECE\u5916\u7F51\u53EF\u8BBF\u95EE\uFF1B\u5FEB\u901F\u96A7\u9053\u4F1A\u751F\u6210\u65B0\u5730\u5740\u3002\u8BF7\u786E\u8BA4\u4F60\u4E86\u89E3\u516C\u7F51\u66B4\u9732\u98CE\u9669\u3002",
+  "autoRestoreRiskConfirm": "\u6211\u5DF2\u77E5\u60C5\uFF0C\u5F00\u542F\u81EA\u52A8\u6062\u590D",
+  "accessCurrentLinks": "\u5F53\u524D\u53EF\u7528\u5730\u5740",
+  "accessNoPublic": "\u516C\u7F51\u672A\u5F00\u542F\uFF1B\u5C40\u57DF\u7F51\u4ECD\u53EF\u6B63\u5E38\u4F7F\u7528\u3002",
+  "securitySummary": "\u5B89\u5168\u72B6\u6001",
+  "securityHint": "\u516C\u7F51\u5B89\u5168\u8BBE\u7F6E\uFF08Cloudflare Access \u4E0E PIN\uFF09\u5728\u201C\u7F51\u7EDC\u914D\u7F6E\u201D\u7684\u56FA\u5B9A\u57DF\u540D\u533A\u5757\u4E2D\u3002",
   "remoteSummaryLocal": "\u4EC5\u672C\u5730\u8BBF\u95EE",
   "remoteSummaryLocalDetail": "\u5C40\u57DF\u7F51 / \u865A\u62DF\u5C40\u57DF\u7F51\u53EF\u7528\uFF1B\u516C\u7F51\u672A\u5F00\u542F",
   "remoteSummaryLocalFixedDetail": "\u56FA\u5B9A\u57DF\u540D\u5DF2\u914D\u7F6E\uFF0C\u5F53\u524D\u672A\u5F00\u542F\u516C\u7F51",
@@ -1569,6 +1583,19 @@ var en2 = {
   "section": "Phone access",
   "title": "\u{1F4F1} Phone access",
   "subtitle": "The phone shows this exact screen, live",
+  "tabAccess": "Access status",
+  "tabNetwork": "Network setup",
+  "tabSecurity": "Security",
+  "autoRestoreTitle": "Restore public access after DSH restarts",
+  "autoRestoreHintOn": "Authorized: stopping public access only affects this run; it will restore after the next restart.",
+  "autoRestoreHintOff": "Off by default: restarting DSH will not open public access.",
+  "autoRestoreRiskTitle": "Allow public access to restore after restarts?",
+  "autoRestoreRiskBody": "Once enabled, every DSH restart restores the previous public mode. Your custom domain becomes reachable from the internet again; quick tunnels get a new URL. Confirm you understand the public-exposure risk.",
+  "autoRestoreRiskConfirm": "I understand, enable restore",
+  "accessCurrentLinks": "Available addresses",
+  "accessNoPublic": "Public access is off; LAN access remains available.",
+  "securitySummary": "Security status",
+  "securityHint": "Public security controls (Cloudflare Access and PIN) are in the custom-domain area of Network setup.",
   "remoteSummaryLocal": "Local access only",
   "remoteSummaryLocalDetail": "LAN / virtual LAN is available; public access is off",
   "remoteSummaryLocalFixedDetail": "Custom domain is configured; public access is currently off",
@@ -1862,6 +1889,8 @@ function installPublicAccessIndicators(ctx, rpcCall, t) {
 }
 function PocketSettingsTab({ rpcCall, t }) {
   const [status, setStatus] = (0, import_react2.useState)(null);
+  const [activeTab, setActiveTab] = (0, import_react2.useState)("access");
+  const [autoRestoreRiskOpen, setAutoRestoreRiskOpen] = (0, import_react2.useState)(false);
   const [busy, setBusy] = (0, import_react2.useState)(false);
   const [error, setError] = (0, import_react2.useState)(null);
   const [tunnelState, setTunnelState] = (0, import_react2.useState)(null);
@@ -2126,6 +2155,25 @@ function PocketSettingsTab({ rpcCall, t }) {
       setError(err.message);
     }
   };
+  const setAutoRestore = async (on) => {
+    if (on) {
+      setAutoRestoreRiskOpen(true);
+      return;
+    }
+    try {
+      setStatus(await call(POCKET_ENDPOINTS.tunnelSetAutoRestore, { on: false }));
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+  const confirmAutoRestore = async () => {
+    setAutoRestoreRiskOpen(false);
+    try {
+      setStatus(await call(POCKET_ENDPOINTS.tunnelSetAutoRestore, { on: true }));
+    } catch (err) {
+      setError(err.message);
+    }
+  };
   const guestAction = async (endpoint, payload = {}) => {
     try {
       const r = await call(endpoint, payload);
@@ -2290,6 +2338,10 @@ function PocketSettingsTab({ rpcCall, t }) {
     access: fAccess ? fAccessVerified ? t("remoteAccessVerified") : t("remoteAccessUnverified") : t("remoteAccessUnverified"),
     pin: fixedPinRequired ? t("remotePinForced") : t("remotePinDisabled")
   }) : remoteState.kind === "connecting" ? t("remoteSummaryConnectingDetail") : remoteState.kind === "problem" ? fmt(t, "remoteSummaryProblemDetail", { detail: remoteState.detail || t("fixedRuntimeStopped") }) : remoteState.detail === "fixed-stopped" ? t("remoteSummaryLocalFixedDetail") : t("remoteSummaryLocalDetail");
+  const tabButton = (id, label) => (0, import_react2.createElement)("button", {
+    style: { ...styles.btn, height: 30, padding: "0 11px", fontSize: 12, fontWeight: activeTab === id ? 600 : 400, background: activeTab === id ? "var(--dsw-alias-button-primary-fill,var(--dsw-alias-brand-primary,#4f6ef7))" : "var(--dsw-alias-bg-layer-1,#fff)", color: activeTab === id ? "var(--dsw-alias-label-primary-foreground,#fff)" : "var(--dsw-alias-label-primary,inherit)" },
+    onClick: () => setActiveTab(id)
+  }, label);
   return (0, import_react2.createElement)(
     "div",
     { style: styles.card },
@@ -2328,6 +2380,42 @@ function PocketSettingsTab({ rpcCall, t }) {
       ),
       (0, import_react2.createElement)("div", { style: { ...styles.muted, marginTop: 4, wordBreak: "break-word" } }, remoteSummaryDetail)
     ),
+    (0, import_react2.createElement)(
+      "div",
+      { style: { display: "flex", gap: 6, marginTop: 14, borderBottom: "1px solid var(--dsw-alias-border-l2,#e5e7eb)", paddingBottom: 10, flexWrap: "wrap" } },
+      tabButton("access", t("tabAccess")),
+      tabButton("network", t("tabNetwork")),
+      tabButton("security", t("tabSecurity"))
+    ),
+    activeTab === "access" ? (0, import_react2.createElement)(
+      "div",
+      null,
+      (0, import_react2.createElement)(
+        "div",
+        { style: styles.block },
+        (0, import_react2.createElement)(
+          "div",
+          { style: { display: "flex", alignItems: "center", gap: 8 } },
+          (0, import_react2.createElement)("strong", { style: { fontSize: 13 } }, t("autoRestoreTitle")),
+          (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 28, padding: "0 12px", fontSize: 12, marginLeft: "auto", fontWeight: status?.publicAutoRestore ? 600 : 400, background: status?.publicAutoRestore ? "var(--dsw-alias-button-primary-fill,var(--dsw-alias-brand-primary,#4f6ef7))" : "var(--dsw-alias-bg-layer-1,#fff)", color: status?.publicAutoRestore ? "var(--dsw-alias-label-primary-foreground,#fff)" : "var(--dsw-alias-label-primary,inherit)" }, onClick: () => setAutoRestore(status?.publicAutoRestore !== true) }, status?.publicAutoRestore ? t("on") : t("off"))
+        ),
+        (0, import_react2.createElement)("div", { style: { ...styles.muted, marginTop: 4 } }, status?.publicAutoRestore ? t("autoRestoreHintOn") : t("autoRestoreHintOff"))
+      ),
+      (0, import_react2.createElement)(
+        "div",
+        { style: styles.block },
+        (0, import_react2.createElement)("strong", { style: { fontSize: 13 } }, t("accessCurrentLinks")),
+        lanUrl ? (0, import_react2.createElement)("div", { style: { marginTop: 8 } }, (0, import_react2.createElement)("img", { src: status?.lanQr, alt: "LAN QR", style: { ...styles.qr, width: 150, height: 150 } }), (0, import_react2.createElement)("div", { style: styles.code }, lanUrl)) : null,
+        tunnelUrl ? (0, import_react2.createElement)("div", { style: { marginTop: 8 } }, (0, import_react2.createElement)("img", { src: status?.tunnelQr, alt: "Public QR", style: { ...styles.qr, width: 150, height: 150 } }), (0, import_react2.createElement)("div", { style: styles.code }, tunnelUrl)) : (0, import_react2.createElement)("div", { style: { ...styles.muted, marginTop: 8 } }, t("accessNoPublic"))
+      )
+    ) : null,
+    activeTab === "security" ? (0, import_react2.createElement)(
+      "div",
+      { style: styles.block },
+      (0, import_react2.createElement)("strong", { style: { fontSize: 13 } }, t("securitySummary")),
+      (0, import_react2.createElement)("div", { style: { ...styles.muted, marginTop: 6 } }, t("securityHint")),
+      (0, import_react2.createElement)("div", { style: { ...styles.warn, marginTop: 8 } }, fAccess && fAccessVerified ? t("remoteAccessVerified") : t("remoteAccessUnverified"))
+    ) : null,
     // 桌面端不显示更新/重启横幅（更新由 DSH Desktop 管理），也不需要额外提示
     // 重启后提示（进程在后台运行，停止方法）——左侧蓝色色条（桌面端不会触发本插件的自重启）
     !isDesktop && restartNotice ? (0, import_react2.createElement)(
@@ -2362,396 +2450,405 @@ function PocketSettingsTab({ rpcCall, t }) {
         updateInfo.updating ? fmt(t, "updatingDetail", { s: elapsed(updateInfo.startedAt) }) : updateInfo.restarting ? fmt(t, "restartingDetail", { s: elapsed(updateInfo.startedAt) }) : updateInfo.result === "ok" ? updateInfo.autoRestart ? t("updatedAutoDetail") : t("updatedRestartDetail") : updateInfo.result === "fail" ? fmt(t, "updateFailed", { err: updateInfo.output || t("unknownError") }) : fmt(t, "versionRange", { cur: updateInfo.current, latest: updateInfo.latest })
       )
     ) : null,
-    // 局域网
-    (0, import_react2.createElement)(
-      "div",
-      { style: styles.block },
-      (0, import_react2.createElement)("div", { style: { fontWeight: 600, fontSize: 13 } }, t("lanTitle")),
-      // 局域网访问总开关：关闭后扫码/链接直接失效（公网不受影响）
+    // 网络配置：局域网、虚拟局域网与两种公网隧道集中在这里，避免日常扫码页面过长。
+    activeTab === "network" ? (0, import_react2.createElement)(
+      import_react2.Fragment,
+      null,
+      // 局域网
       (0, import_react2.createElement)(
         "div",
-        { style: { display: "flex", alignItems: "center", gap: 8, marginTop: 8 } },
-        (0, import_react2.createElement)("span", { style: { fontSize: 12, color: "var(--dsw-alias-label-secondary,#6b7280)" } }, t("lanAccess")),
-        (0, import_react2.createElement)("button", {
-          style: { ...styles.btn, height: 28, padding: "0 12px", fontSize: 12, fontWeight: status?.lanEnabled !== false ? 600 : 400, background: status?.lanEnabled !== false ? "var(--dsw-alias-button-primary-fill, var(--dsw-alias-brand-primary,#4f6ef7))" : "var(--dsw-alias-bg-layer-1,#fff)", color: status?.lanEnabled !== false ? "var(--dsw-alias-label-primary-foreground, #fff)" : "var(--dsw-alias-label-primary,inherit)" },
-          onClick: () => requestLanToggle(true)
-        }, t("on")),
-        (0, import_react2.createElement)("button", {
-          style: { ...styles.btn, height: 28, padding: "0 12px", fontSize: 12, fontWeight: status?.lanEnabled === false ? 600 : 400, background: status?.lanEnabled === false ? "var(--dsw-alias-state-error-primary,#dc2626)" : "var(--dsw-alias-bg-layer-1,#fff)", color: status?.lanEnabled === false ? "#fff" : "var(--dsw-alias-label-primary,inherit)" },
-          onClick: () => requestLanToggle(false)
-        }, t("off"))
-      ),
-      status?.lanEnabled === false ? (0, import_react2.createElement)("div", { style: { marginTop: 8, fontSize: 12, color: "var(--dsw-alias-state-warn-primary,#b45309)", lineHeight: 1.5 } }, t("lanDisabledHint")) : lanUrl ? (0, import_react2.createElement)(
-        "div",
-        null,
-        (0, import_react2.createElement)("img", { src: status.lanQr, alt: "LAN QR", style: styles.qr }),
-        (0, import_react2.createElement)("div", { style: styles.code }, lanUrl),
-        (0, import_react2.createElement)("div", { style: styles.muted }, t("lanHint")),
-        (0, import_react2.createElement)(
-          "label",
-          { style: { display: "flex", alignItems: "center", gap: 8, marginTop: 10, fontSize: 12, color: "var(--dsw-alias-label-secondary,#6b7280)" } },
-          t("lanAddress"),
-          (0, import_react2.createElement)(
-            "select",
-            {
-              value: status?.lanIpOverride || "",
-              onChange: (e) => setLanAddress(e.target.value),
-              style: { font: "inherit", height: 30, padding: "0 8px", borderRadius: 8, border: "1px solid var(--dsw-alias-border-l2,#d1d5db)", background: "var(--dsw-alias-bg-layer-1,#fff)", color: "var(--dsw-alias-label-primary,inherit)" }
-            },
-            (0, import_react2.createElement)("option", { value: "" }, t("lanAddressAuto")),
-            (status?.lanCandidates || []).map((ip) => (0, import_react2.createElement)("option", { key: ip, value: ip }, ip))
-          )
-        ),
-        (0, import_react2.createElement)("div", { style: { ...styles.muted, marginTop: 2 } }, t("lanAddressHint")),
-        // 访问密码开关（issue #24）：默认开启；关闭后扫码直连（仅同一局域网设备可访问）
+        { style: styles.block },
+        (0, import_react2.createElement)("div", { style: { fontWeight: 600, fontSize: 13 } }, t("lanTitle")),
+        // 局域网访问总开关：关闭后扫码/链接直接失效（公网不受影响）
         (0, import_react2.createElement)(
           "div",
           { style: { display: "flex", alignItems: "center", gap: 8, marginTop: 8 } },
-          (0, import_react2.createElement)("span", { style: { fontSize: 12, color: "var(--dsw-alias-label-secondary,#6b7280)" } }, t("lanPin")),
+          (0, import_react2.createElement)("span", { style: { fontSize: 12, color: "var(--dsw-alias-label-secondary,#6b7280)" } }, t("lanAccess")),
           (0, import_react2.createElement)("button", {
-            style: { ...styles.btn, height: 28, padding: "0 12px", fontSize: 12, fontWeight: status?.lanAuthEnabled !== false ? 600 : 400, background: status?.lanAuthEnabled !== false ? "var(--dsw-alias-button-primary-fill, var(--dsw-alias-brand-primary,#4f6ef7))" : "var(--dsw-alias-bg-layer-1,#fff)", color: status?.lanAuthEnabled !== false ? "var(--dsw-alias-label-primary-foreground, #fff)" : "var(--dsw-alias-label-primary,inherit)" },
-            onClick: () => requestLanAuth(true)
+            style: { ...styles.btn, height: 28, padding: "0 12px", fontSize: 12, fontWeight: status?.lanEnabled !== false ? 600 : 400, background: status?.lanEnabled !== false ? "var(--dsw-alias-button-primary-fill, var(--dsw-alias-brand-primary,#4f6ef7))" : "var(--dsw-alias-bg-layer-1,#fff)", color: status?.lanEnabled !== false ? "var(--dsw-alias-label-primary-foreground, #fff)" : "var(--dsw-alias-label-primary,inherit)" },
+            onClick: () => requestLanToggle(true)
           }, t("on")),
           (0, import_react2.createElement)("button", {
-            style: { ...styles.btn, height: 28, padding: "0 12px", fontSize: 12, fontWeight: status?.lanAuthEnabled === false ? 600 : 400, background: status?.lanAuthEnabled === false ? "var(--dsw-alias-state-error-primary,#dc2626)" : "var(--dsw-alias-bg-layer-1,#fff)", color: status?.lanAuthEnabled === false ? "#fff" : "var(--dsw-alias-label-primary,inherit)" },
-            onClick: () => requestLanAuth(false)
+            style: { ...styles.btn, height: 28, padding: "0 12px", fontSize: 12, fontWeight: status?.lanEnabled === false ? 600 : 400, background: status?.lanEnabled === false ? "var(--dsw-alias-state-error-primary,#dc2626)" : "var(--dsw-alias-bg-layer-1,#fff)", color: status?.lanEnabled === false ? "#fff" : "var(--dsw-alias-label-primary,inherit)" },
+            onClick: () => requestLanToggle(false)
           }, t("off"))
         ),
-        status?.lanAuthEnabled !== false ? customPin?.which === "lan" ? customPinRow("lan") : (0, import_react2.createElement)(
-          "div",
-          { style: { marginTop: 6, fontSize: 12, color: "var(--dsw-alias-label-secondary,#6b7280)", lineHeight: 1.5 } },
-          fmt(t, status?.lanPinCustom ? "lanPinCustomValue" : "lanPinValue", { pin: status.lanToken }),
-          (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 26, padding: "0 10px", fontSize: 12, marginLeft: 8 }, onClick: refreshLanPin }, t("refresh")),
-          customBtn("lan")
-        ) : (0, import_react2.createElement)(
-          "div",
-          { style: { marginTop: 6, fontSize: 12, color: "var(--dsw-alias-state-warn-primary,#b45309)", lineHeight: 1.5 } },
-          activeVirtualNetwork ? t("virtualPinOff") : t("lanPinOff")
-        )
-      ) : (0, import_react2.createElement)("div", { style: styles.muted }, t("lanStarting"))
-    ),
-    // 虚拟局域网：把已连接的 Tailscale / ZeroTier 网卡变成一键可用的专属二维码。
-    (0, import_react2.createElement)(
-      "div",
-      { style: styles.block },
-      (0, import_react2.createElement)("div", { style: { fontWeight: 600, fontSize: 13 } }, t("virtualTitle")),
-      (0, import_react2.createElement)("div", { style: { ...styles.muted, marginTop: 4 } }, t("virtualHint")),
-      (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 28, padding: "0 12px", fontSize: 12, marginTop: 8 }, onClick: refreshVirtualNetworks }, t("virtualRefresh")),
-      virtualNetworks.length === 0 ? (0, import_react2.createElement)("div", { style: { ...styles.warn, marginTop: 8 } }, t("virtualNone")) : virtualNetworks.map((network) => {
-        const selected = activeVirtualNetwork?.ip === network.ip;
-        return (0, import_react2.createElement)(
-          "div",
-          { key: `${network.kind}-${network.ip}`, style: { marginTop: 10, paddingTop: 10, borderTop: "1px dashed var(--dsw-alias-border-l2,#e5e7eb)" } },
-          (0, import_react2.createElement)(
-            "div",
-            { style: { display: "flex", alignItems: "center", gap: 8 } },
-            (0, import_react2.createElement)("span", { style: { fontSize: 12, fontWeight: 600 } }, `\u25CF ${network.label}`),
-            (0, import_react2.createElement)("span", { style: { ...styles.code, margin: 0, color: "var(--dsw-alias-label-secondary,#6b7280)" } }, network.ip),
-            (0, import_react2.createElement)("button", {
-              style: { ...styles.btn, marginLeft: "auto", height: 28, padding: "0 12px", fontSize: 12, ...selected ? { borderColor: "var(--dsw-alias-state-success-primary,#15803d)", color: "var(--dsw-alias-state-success-primary,#15803d)" } : {} },
-              onClick: () => useVirtualNetwork(network.ip)
-            }, selected ? t("virtualSelected") : t("virtualUse"))
-          ),
-          selected && network.url ? (0, import_react2.createElement)(
-            "div",
-            null,
-            (0, import_react2.createElement)("img", { src: network.qr, alt: `${network.label} QR`, style: styles.qr }),
-            (0, import_react2.createElement)("div", { style: styles.code }, network.url),
-            (0, import_react2.createElement)("div", { style: styles.muted }, t("virtualPhoneHint")),
-            (0, import_react2.createElement)("div", { style: { ...styles.warn, marginTop: 6 } }, t("virtualSafetyTitle")),
-            (0, import_react2.createElement)("div", { style: styles.muted }, t("virtualSafetyBody"))
-          ) : null
-        );
-      })
-    ),
-    // 公网
-    (0, import_react2.createElement)(
-      "div",
-      { style: styles.block },
-      (0, import_react2.createElement)("div", { style: { fontWeight: 600, fontSize: 13 } }, t("wanTitle")),
-      // 共享的隧道进度（两种模式共用 tunnelState；谁在跑/在开就显示谁的进度）
-      tunnelStarting ? (0, import_react2.createElement)(
-        "div",
-        { style: { marginTop: 6, fontSize: 12, color: "var(--dsw-alias-label-secondary,#6b7280)" } },
-        tunnelPhase === "downloading" ? fmt(t, "downloading", { s: elapsed(tunnelStateStarted) }) : fmt(t, "connecting", { s: elapsed(tunnelStateStarted), suffix: elapsed(tunnelStateStarted) > 30 ? t("slowHint") : "" })
-      ) : tunnelPhase === "error" ? (0, import_react2.createElement)(
-        "div",
-        { style: { marginTop: 6, fontSize: 12, color: "var(--dsw-alias-state-error-primary,#dc2626)" } },
-        fmt(t, "error", { detail: tunnelStateDetail || t("unknownError") })
-      ) : null,
-      // ---- 快速隧道（临时地址，无需账号）----
-      (0, import_react2.createElement)(
-        "div",
-        { style: { ...styles.block, borderTop: "1px dashed var(--dsw-alias-border-l2,#e5e7eb)", marginTop: 10, paddingTop: 10 } },
-        (0, import_react2.createElement)("div", { style: { fontSize: 12, fontWeight: 600, color: "var(--dsw-alias-label-secondary,#6b7280)", marginBottom: 4 } }, t("quickTitle")),
-        quickRunning ? (0, import_react2.createElement)(
+        status?.lanEnabled === false ? (0, import_react2.createElement)("div", { style: { marginTop: 8, fontSize: 12, color: "var(--dsw-alias-state-warn-primary,#b45309)", lineHeight: 1.5 } }, t("lanDisabledHint")) : lanUrl ? (0, import_react2.createElement)(
           "div",
           null,
-          (0, import_react2.createElement)("img", { src: status.tunnelQr, alt: "Tunnel QR", style: styles.qr }),
-          (0, import_react2.createElement)("div", { style: styles.code }, tunnelUrl),
-          (0, import_react2.createElement)("div", { style: styles.muted }, t("quickHint")),
-          status.accessToken ? customPin?.which === "public" ? customPinRow("public") : (0, import_react2.createElement)(
-            "div",
-            { style: { marginTop: 6, fontSize: 12, color: "var(--dsw-alias-label-secondary,#6b7280)", lineHeight: 1.5 } },
-            fmt(t, status?.publicPinCustom ? "wanPinCustom" : "wanPin", { pin: status.accessToken }),
-            customBtn("public"),
-            status?.publicPinCustom ? (0, import_react2.createElement)("div", { style: { marginTop: 2, fontSize: 11, color: "var(--dsw-alias-state-warn-primary,#b45309)" } }, t("pinCustomHint")) : null
-          ) : null,
-          (0, import_react2.createElement)("button", { style: styles.btn, onClick: stopTunnel }, t("stopTunnel"))
-        ) : (0, import_react2.createElement)(
-          "div",
-          null,
-          (0, import_react2.createElement)("button", { style: { ...styles.primary, margin: "8px 0" }, onClick: startTunnel, disabled: busy }, busy ? t("opening") : t("enable")),
-          (0, import_react2.createElement)("div", { style: styles.muted }, t("quickHint"))
-        )
-      ),
-      // ---- 固定域名（命名隧道 + Cloudflare Access）----
-      // 高级功能默认折叠：头部一行（标题 + 状态标签 + 展开箭头），点开才显示向导与开关。
-      // 状态点一目了然：未配置 / 待初始化 / 已就绪 / 运行中——不用展开就能判断进度。
-      (0, import_react2.createElement)(
-        "div",
-        { style: { ...styles.block, borderTop: "1px dashed var(--dsw-alias-border-l2,#e5e7eb)", marginTop: 10, paddingTop: 10 } },
-        (0, import_react2.createElement)(
-          "div",
-          { style: { display: "flex", alignItems: "center", gap: 8, cursor: "pointer", userSelect: "none" }, onClick: () => setFixedOpen(!fixedOpen) },
-          (0, import_react2.createElement)("span", { style: { fontSize: 12, fontWeight: 600, color: "var(--dsw-alias-label-secondary,#6b7280)" } }, t("fixedTitle")),
-          (0, import_react2.createElement)("span", { style: { marginLeft: "auto", fontSize: 11, fontWeight: 600, padding: "2px 10px", borderRadius: 999, color: fixedStatusColor, border: `1px solid ${fixedStatusColor}`, background: "var(--dsw-alias-bg-layer-1,#fff)" } }, fixedStatusLabel),
-          (0, import_react2.createElement)("span", { style: { fontSize: 10, color: "var(--dsw-alias-label-tertiary,#8b93a1)" } }, fixedOpen ? "\u25B4" : "\u25BE")
-        ),
-        // 折叠摘要：已配置显示域名，未配置给提示（含 Access 推荐说明）
-        !fixedOpen ? (0, import_react2.createElement)(
-          "div",
-          { style: { ...styles.muted, marginTop: 2 } },
-          fHostname ? fHostname : t("fixedCollapsedHint")
-        ) : null,
-        // 展开内容（向导 + 开关）
-        !fixedOpen ? null : (0, import_react2.createElement)(
-          "div",
-          null,
-          (0, import_react2.createElement)("div", { style: { ...styles.muted, marginTop: 2 } }, t("fixedSubtitle")),
-          // 域名输入/保存
+          (0, import_react2.createElement)("img", { src: status.lanQr, alt: "LAN QR", style: styles.qr }),
+          (0, import_react2.createElement)("div", { style: styles.code }, lanUrl),
+          (0, import_react2.createElement)("div", { style: styles.muted }, t("lanHint")),
           (0, import_react2.createElement)(
-            "div",
-            { style: { display: "flex", alignItems: "center", gap: 6, marginTop: 8 } },
-            (0, import_react2.createElement)("span", { style: { fontSize: 12, color: "var(--dsw-alias-label-secondary,#6b7280)" } }, t("fixedHostnameLabel")),
-            (0, import_react2.createElement)("input", {
-              style: { flex: 1, minWidth: 0, font: "inherit", height: 30, padding: "0 8px", borderRadius: 8, border: "1px solid var(--dsw-alias-border-l2,#d1d5db)", background: "var(--dsw-alias-bg-layer-1,#fff)", color: "var(--dsw-alias-label-primary,inherit)", outline: "none" },
-              placeholder: t("fixedHostnamePlaceholder"),
-              value: fixedHostnameInput,
-              onChange: (e) => setFixedHostnameInput(e.target.value),
-              onKeyDown: (e) => {
-                if (e.key === "Enter") saveFixedHostname();
-              }
-            }),
-            (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 30, padding: "0 12px", fontSize: 12 }, onClick: saveFixedHostname, disabled: fixedBusy }, t("fixedSave"))
-          ),
-          fHostname ? (0, import_react2.createElement)("div", { style: { marginTop: 4, fontSize: 11, color: "var(--dsw-alias-state-success-primary,#15803d)" } }, fmt(t, "fixedSaved", { hostname: fHostname })) : null,
-          // 初始化向导：① 登录 ② 建隧道+绑 DNS ③ 开启
-          (0, import_react2.createElement)("div", { style: { ...styles.muted, marginTop: 10, fontWeight: 600 } }, t("fixedSetupWizard")),
-          (0, import_react2.createElement)(
-            "div",
-            { style: { marginTop: 6, fontSize: 12, color: "var(--dsw-alias-label-secondary,#6b7280)", lineHeight: 1.6 } },
-            // ① 登录
+            "label",
+            { style: { display: "flex", alignItems: "center", gap: 8, marginTop: 10, fontSize: 12, color: "var(--dsw-alias-label-secondary,#6b7280)" } },
+            t("lanAddress"),
             (0, import_react2.createElement)(
-              "div",
-              { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } },
-              (0, import_react2.createElement)("span", null, fCert ? `\u2705 ${t("fixedStep1Done")}` : t("fixedStep1")),
-              fCert ? null : (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 26, padding: "0 10px", fontSize: 12 }, onClick: runFixedLogin, disabled: fixedBusy }, t("fixedLoginBtn"))
-            ),
-            // 登录进行中/授权链接
-            !fCert && status?.fixedLogin?.url ? (0, import_react2.createElement)(
-              "div",
-              { style: { marginTop: 4, fontSize: 11, color: "var(--dsw-alias-state-warn-primary,#b45309)", lineHeight: 1.5 } },
-              t("fixedLoginHint"),
-              (0, import_react2.createElement)(
-                "div",
-                null,
-                (0, import_react2.createElement)("a", { href: status.fixedLogin.url, target: "_blank", rel: "noreferrer", style: { color: "var(--dsw-alias-brand-primary,#4f6ef7)", textDecoration: "underline" } }, t("fixedOpenUrl"))
-              )
-            ) : null,
-            // ② 初始化
-            (0, import_react2.createElement)(
-              "div",
-              { style: { display: "flex", alignItems: "center", gap: 8, marginTop: 4, flexWrap: "wrap" } },
-              (0, import_react2.createElement)("span", null, fTunnel && fDns ? `\u2705 ${t("fixedStep2Done")}` : t("fixedStep2")),
-              !(fTunnel && fDns) ? (0, import_react2.createElement)("button", {
-                style: { ...styles.btn, height: 26, padding: "0 10px", fontSize: 12 },
-                onClick: runFixedSetup,
-                disabled: fixedBusy || !fCert || !fHostname,
-                title: !fCert ? t("fixedNeedLoginFirst") : !fHostname ? t("fixedNeedHostname") : ""
-              }, fixedBusy ? t("fixedSetupBusy") : t("fixedSetupBtn")) : null
-            ),
-            // ③ 开启/运行
-            (0, import_react2.createElement)(
-              "div",
-              { style: { marginTop: 8, padding: "7px 9px", borderRadius: 8, fontSize: 11, lineHeight: 1.5, background: fixedRunning ? "rgba(22,163,74,.08)" : fixedStarting ? "rgba(217,119,6,.10)" : "rgba(220,38,38,.08)", color: fixedRunning ? "var(--dsw-alias-state-success-primary,#15803d)" : fixedStarting ? "var(--dsw-alias-state-warn-primary,#b45309)" : "var(--dsw-alias-state-error-primary,#dc2626)" } },
-              fixedRunning ? fmt(t, "fixedRuntimeLive", { port: status?.proxyPort ?? "\u2014" }) : fixedStarting ? tunnelPhase === "downloading" ? fmt(t, "fixedRuntimeDownloading", { s: elapsed(tunnelStateStarted) }) : fmt(t, "fixedRuntimeStarting", { detail: tunnelStateDetail || fmt(t, "connecting", { s: elapsed(tunnelStateStarted), suffix: "" }) }) : tunnelPhase === "error" ? fmt(t, "fixedRuntimeError", { detail: tunnelStateDetail || t("unknownError") }) : t("fixedRuntimeStopped")
-            ),
-            fixedRunning ? (0, import_react2.createElement)(
-              "div",
-              { style: { marginTop: 8 } },
-              (0, import_react2.createElement)("div", { style: { fontSize: 12, fontWeight: 600, color: "var(--dsw-alias-state-success-primary,#15803d)" } }, t("fixedRunning")),
-              (0, import_react2.createElement)("img", { src: status.tunnelQr, alt: "Fixed QR", style: styles.qr }),
-              (0, import_react2.createElement)("div", { style: styles.code }, tunnelUrl),
-              fixedPinRequired && status.accessToken ? customPin?.which === "public" ? customPinRow("public") : (0, import_react2.createElement)(
-                "div",
-                { style: { marginTop: 6, fontSize: 12, color: "var(--dsw-alias-label-secondary,#6b7280)", lineHeight: 1.5 } },
-                fmt(t, status?.publicPinCustom ? "wanPinCustom" : "fixedWanPin", { pin: status.accessToken }),
-                customBtn("public"),
-                status?.publicPinCustom ? (0, import_react2.createElement)("div", { style: { marginTop: 2, fontSize: 11, color: "var(--dsw-alias-state-warn-primary,#b45309)" } }, t("pinCustomHint")) : null
-              ) : null,
-              (0, import_react2.createElement)("button", { style: styles.btn, onClick: stopTunnel }, t("fixedStop"))
-            ) : (0, import_react2.createElement)(
-              "div",
-              { style: { marginTop: 6 } },
-              (0, import_react2.createElement)("button", {
-                style: { ...styles.primary },
-                onClick: startFixedTunnel,
-                disabled: fixedBusy || !fTunnel || !fDns || !fHostname
-              }, t("fixedEnableBtn")),
-              (!fTunnel || !fDns) && fHostname ? (0, import_react2.createElement)(
-                "div",
-                { style: { marginTop: 4, fontSize: 11, color: "var(--dsw-alias-state-warn-primary,#b45309)" } },
-                !fCert ? t("fixedNeedLoginFirst") : t("fixedNeedSetup")
-              ) : null
+              "select",
+              {
+                value: status?.lanIpOverride || "",
+                onChange: (e) => setLanAddress(e.target.value),
+                style: { font: "inherit", height: 30, padding: "0 8px", borderRadius: 8, border: "1px solid var(--dsw-alias-border-l2,#d1d5db)", background: "var(--dsw-alias-bg-layer-1,#fff)", color: "var(--dsw-alias-label-primary,inherit)" }
+              },
+              (0, import_react2.createElement)("option", { value: "" }, t("lanAddressAuto")),
+              (status?.lanCandidates || []).map((ip) => (0, import_react2.createElement)("option", { key: ip, value: ip }, ip))
             )
           ),
-          // Cloudflare Access 开关（推荐）
+          (0, import_react2.createElement)("div", { style: { ...styles.muted, marginTop: 2 } }, t("lanAddressHint")),
+          // 访问密码开关（issue #24）：默认开启；关闭后扫码直连（仅同一局域网设备可访问）
           (0, import_react2.createElement)(
             "div",
-            { style: { borderTop: "1px solid var(--dsw-alias-border-l2,#e5e7eb)", marginTop: 10, paddingTop: 8 } },
+            { style: { display: "flex", alignItems: "center", gap: 8, marginTop: 8 } },
+            (0, import_react2.createElement)("span", { style: { fontSize: 12, color: "var(--dsw-alias-label-secondary,#6b7280)" } }, t("lanPin")),
+            (0, import_react2.createElement)("button", {
+              style: { ...styles.btn, height: 28, padding: "0 12px", fontSize: 12, fontWeight: status?.lanAuthEnabled !== false ? 600 : 400, background: status?.lanAuthEnabled !== false ? "var(--dsw-alias-button-primary-fill, var(--dsw-alias-brand-primary,#4f6ef7))" : "var(--dsw-alias-bg-layer-1,#fff)", color: status?.lanAuthEnabled !== false ? "var(--dsw-alias-label-primary-foreground, #fff)" : "var(--dsw-alias-label-primary,inherit)" },
+              onClick: () => requestLanAuth(true)
+            }, t("on")),
+            (0, import_react2.createElement)("button", {
+              style: { ...styles.btn, height: 28, padding: "0 12px", fontSize: 12, fontWeight: status?.lanAuthEnabled === false ? 600 : 400, background: status?.lanAuthEnabled === false ? "var(--dsw-alias-state-error-primary,#dc2626)" : "var(--dsw-alias-bg-layer-1,#fff)", color: status?.lanAuthEnabled === false ? "#fff" : "var(--dsw-alias-label-primary,inherit)" },
+              onClick: () => requestLanAuth(false)
+            }, t("off"))
+          ),
+          status?.lanAuthEnabled !== false ? customPin?.which === "lan" ? customPinRow("lan") : (0, import_react2.createElement)(
+            "div",
+            { style: { marginTop: 6, fontSize: 12, color: "var(--dsw-alias-label-secondary,#6b7280)", lineHeight: 1.5 } },
+            fmt(t, status?.lanPinCustom ? "lanPinCustomValue" : "lanPinValue", { pin: status.lanToken }),
+            (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 26, padding: "0 10px", fontSize: 12, marginLeft: 8 }, onClick: refreshLanPin }, t("refresh")),
+            customBtn("lan")
+          ) : (0, import_react2.createElement)(
+            "div",
+            { style: { marginTop: 6, fontSize: 12, color: "var(--dsw-alias-state-warn-primary,#b45309)", lineHeight: 1.5 } },
+            activeVirtualNetwork ? t("virtualPinOff") : t("lanPinOff")
+          )
+        ) : (0, import_react2.createElement)("div", { style: styles.muted }, t("lanStarting"))
+      ),
+      // 虚拟局域网：把已连接的 Tailscale / ZeroTier 网卡变成一键可用的专属二维码。
+      (0, import_react2.createElement)(
+        "div",
+        { style: styles.block },
+        (0, import_react2.createElement)("div", { style: { fontWeight: 600, fontSize: 13 } }, t("virtualTitle")),
+        (0, import_react2.createElement)("div", { style: { ...styles.muted, marginTop: 4 } }, t("virtualHint")),
+        (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 28, padding: "0 12px", fontSize: 12, marginTop: 8 }, onClick: refreshVirtualNetworks }, t("virtualRefresh")),
+        virtualNetworks.length === 0 ? (0, import_react2.createElement)("div", { style: { ...styles.warn, marginTop: 8 } }, t("virtualNone")) : virtualNetworks.map((network) => {
+          const selected = activeVirtualNetwork?.ip === network.ip;
+          return (0, import_react2.createElement)(
+            "div",
+            { key: `${network.kind}-${network.ip}`, style: { marginTop: 10, paddingTop: 10, borderTop: "1px dashed var(--dsw-alias-border-l2,#e5e7eb)" } },
             (0, import_react2.createElement)(
               "div",
               { style: { display: "flex", alignItems: "center", gap: 8 } },
-              (0, import_react2.createElement)("span", { style: { fontSize: 12, color: "var(--dsw-alias-label-secondary,#6b7280)" } }, t("fixedAccessTitle")),
+              (0, import_react2.createElement)("span", { style: { fontSize: 12, fontWeight: 600 } }, `\u25CF ${network.label}`),
+              (0, import_react2.createElement)("span", { style: { ...styles.code, margin: 0, color: "var(--dsw-alias-label-secondary,#6b7280)" } }, network.ip),
               (0, import_react2.createElement)("button", {
-                style: { ...styles.btn, height: 28, padding: "0 12px", fontSize: 12, fontWeight: fAccess ? 600 : 400, background: fAccess ? "var(--dsw-alias-button-primary-fill, var(--dsw-alias-brand-primary,#4f6ef7))" : "var(--dsw-alias-bg-layer-1,#fff)", color: fAccess ? "var(--dsw-alias-label-primary-foreground, #fff)" : "var(--dsw-alias-label-primary,inherit)" },
-                onClick: () => setFixedAccess(true)
-              }, t("on")),
-              (0, import_react2.createElement)("button", {
-                style: { ...styles.btn, height: 28, padding: "0 12px", fontSize: 12, fontWeight: !fAccess ? 600 : 400, background: !fAccess ? "var(--dsw-alias-state-error-primary,#dc2626)" : "var(--dsw-alias-bg-layer-1,#fff)", color: !fAccess ? "#fff" : "var(--dsw-alias-label-primary,inherit)" },
-                onClick: () => setFixedAccess(false)
-              }, t("off")),
-              // 配置引导：内嵌 CF Dashboard 步骤（比外链教程更少跳转）
-              (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 28, padding: "0 10px", fontSize: 11, marginLeft: "auto" }, onClick: () => setFixedGuideOpen(true) }, t("fixedGuideBtn"))
+                style: { ...styles.btn, marginLeft: "auto", height: 28, padding: "0 12px", fontSize: 12, ...selected ? { borderColor: "var(--dsw-alias-state-success-primary,#15803d)", color: "var(--dsw-alias-state-success-primary,#15803d)" } : {} },
+                onClick: () => useVirtualNetwork(network.ip)
+              }, selected ? t("virtualSelected") : t("virtualUse"))
             ),
+            selected && network.url ? (0, import_react2.createElement)(
+              "div",
+              null,
+              (0, import_react2.createElement)("img", { src: network.qr, alt: `${network.label} QR`, style: styles.qr }),
+              (0, import_react2.createElement)("div", { style: styles.code }, network.url),
+              (0, import_react2.createElement)("div", { style: styles.muted }, t("virtualPhoneHint")),
+              (0, import_react2.createElement)("div", { style: { ...styles.warn, marginTop: 6 } }, t("virtualSafetyTitle")),
+              (0, import_react2.createElement)("div", { style: styles.muted }, t("virtualSafetyBody"))
+            ) : null
+          );
+        })
+      ),
+      // 公网
+      (0, import_react2.createElement)(
+        "div",
+        { style: styles.block },
+        (0, import_react2.createElement)("div", { style: { fontWeight: 600, fontSize: 13 } }, t("wanTitle")),
+        // 共享的隧道进度（两种模式共用 tunnelState；谁在跑/在开就显示谁的进度）
+        tunnelStarting ? (0, import_react2.createElement)(
+          "div",
+          { style: { marginTop: 6, fontSize: 12, color: "var(--dsw-alias-label-secondary,#6b7280)" } },
+          tunnelPhase === "downloading" ? fmt(t, "downloading", { s: elapsed(tunnelStateStarted) }) : fmt(t, "connecting", { s: elapsed(tunnelStateStarted), suffix: elapsed(tunnelStateStarted) > 30 ? t("slowHint") : "" })
+        ) : tunnelPhase === "error" ? (0, import_react2.createElement)(
+          "div",
+          { style: { marginTop: 6, fontSize: 12, color: "var(--dsw-alias-state-error-primary,#dc2626)" } },
+          fmt(t, "error", { detail: tunnelStateDetail || t("unknownError") })
+        ) : null,
+        // ---- 快速隧道（临时地址，无需账号）----
+        (0, import_react2.createElement)(
+          "div",
+          { style: { ...styles.block, borderTop: "1px dashed var(--dsw-alias-border-l2,#e5e7eb)", marginTop: 10, paddingTop: 10 } },
+          (0, import_react2.createElement)("div", { style: { fontSize: 12, fontWeight: 600, color: "var(--dsw-alias-label-secondary,#6b7280)", marginBottom: 4 } }, t("quickTitle")),
+          quickRunning ? (0, import_react2.createElement)(
+            "div",
+            null,
+            (0, import_react2.createElement)("img", { src: status.tunnelQr, alt: "Tunnel QR", style: styles.qr }),
+            (0, import_react2.createElement)("div", { style: styles.code }, tunnelUrl),
+            (0, import_react2.createElement)("div", { style: styles.muted }, t("quickHint")),
+            status.accessToken ? customPin?.which === "public" ? customPinRow("public") : (0, import_react2.createElement)(
+              "div",
+              { style: { marginTop: 6, fontSize: 12, color: "var(--dsw-alias-label-secondary,#6b7280)", lineHeight: 1.5 } },
+              fmt(t, status?.publicPinCustom ? "wanPinCustom" : "wanPin", { pin: status.accessToken }),
+              customBtn("public"),
+              status?.publicPinCustom ? (0, import_react2.createElement)("div", { style: { marginTop: 2, fontSize: 11, color: "var(--dsw-alias-state-warn-primary,#b45309)" } }, t("pinCustomHint")) : null
+            ) : null,
+            (0, import_react2.createElement)("button", { style: styles.btn, onClick: stopTunnel }, t("stopTunnel"))
+          ) : (0, import_react2.createElement)(
+            "div",
+            null,
+            (0, import_react2.createElement)("button", { style: { ...styles.primary, margin: "8px 0" }, onClick: startTunnel, disabled: busy }, busy ? t("opening") : t("enable")),
+            (0, import_react2.createElement)("div", { style: styles.muted }, t("quickHint"))
+          )
+        ),
+        // ---- 固定域名（命名隧道 + Cloudflare Access）----
+        // 高级功能默认折叠：头部一行（标题 + 状态标签 + 展开箭头），点开才显示向导与开关。
+        // 状态点一目了然：未配置 / 待初始化 / 已就绪 / 运行中——不用展开就能判断进度。
+        (0, import_react2.createElement)(
+          "div",
+          { style: { ...styles.block, borderTop: "1px dashed var(--dsw-alias-border-l2,#e5e7eb)", marginTop: 10, paddingTop: 10 } },
+          (0, import_react2.createElement)(
+            "div",
+            { style: { display: "flex", alignItems: "center", gap: 8, cursor: "pointer", userSelect: "none" }, onClick: () => setFixedOpen(!fixedOpen) },
+            (0, import_react2.createElement)("span", { style: { fontSize: 12, fontWeight: 600, color: "var(--dsw-alias-label-secondary,#6b7280)" } }, t("fixedTitle")),
+            (0, import_react2.createElement)("span", { style: { marginLeft: "auto", fontSize: 11, fontWeight: 600, padding: "2px 10px", borderRadius: 999, color: fixedStatusColor, border: `1px solid ${fixedStatusColor}`, background: "var(--dsw-alias-bg-layer-1,#fff)" } }, fixedStatusLabel),
+            (0, import_react2.createElement)("span", { style: { fontSize: 10, color: "var(--dsw-alias-label-tertiary,#8b93a1)" } }, fixedOpen ? "\u25B4" : "\u25BE")
+          ),
+          // 折叠摘要：已配置显示域名，未配置给提示（含 Access 推荐说明）
+          !fixedOpen ? (0, import_react2.createElement)(
+            "div",
+            { style: { ...styles.muted, marginTop: 2 } },
+            fHostname ? fHostname : t("fixedCollapsedHint")
+          ) : null,
+          // 展开内容（向导 + 开关）
+          !fixedOpen ? null : (0, import_react2.createElement)(
+            "div",
+            null,
+            (0, import_react2.createElement)("div", { style: { ...styles.muted, marginTop: 2 } }, t("fixedSubtitle")),
+            // 域名输入/保存
             (0, import_react2.createElement)(
               "div",
-              { style: { marginTop: 4, fontSize: 11, lineHeight: 1.5, color: fAccess ? "var(--dsw-alias-label-tertiary,#8b93a1)" : "var(--dsw-alias-state-warn-primary,#b45309)" } },
-              fAccess ? fAccessVerified ? t("fixedAccessHintOn") : `\u{1F512} ${fAccessCheckDetail || t("fixedAccessUnverified")}` : t("fixedAccessHintOff")
-            ),
-            fAccess ? (0, import_react2.createElement)("button", {
-              style: { ...styles.btn, height: 26, padding: "0 10px", fontSize: 11, marginTop: 6 },
-              disabled: fixedBusy || !fixedRunning,
-              onClick: async () => {
-                setFixedBusy(true);
-                try {
-                  setStatus(await call(POCKET_ENDPOINTS.fixedVerifyAccess, {}));
-                } catch (err) {
-                  setError(err.message);
-                } finally {
-                  setFixedBusy(false);
+              { style: { display: "flex", alignItems: "center", gap: 6, marginTop: 8 } },
+              (0, import_react2.createElement)("span", { style: { fontSize: 12, color: "var(--dsw-alias-label-secondary,#6b7280)" } }, t("fixedHostnameLabel")),
+              (0, import_react2.createElement)("input", {
+                style: { flex: 1, minWidth: 0, font: "inherit", height: 30, padding: "0 8px", borderRadius: 8, border: "1px solid var(--dsw-alias-border-l2,#d1d5db)", background: "var(--dsw-alias-bg-layer-1,#fff)", color: "var(--dsw-alias-label-primary,inherit)", outline: "none" },
+                placeholder: t("fixedHostnamePlaceholder"),
+                value: fixedHostnameInput,
+                onChange: (e) => setFixedHostnameInput(e.target.value),
+                onKeyDown: (e) => {
+                  if (e.key === "Enter") saveFixedHostname();
                 }
-              }
-            }, "\u91CD\u65B0\u9A8C\u8BC1 Access") : null,
-            // PIN 策略：Access 关 → 强制 PIN（安全提示，主界面直接显示，不藏）
-            fAccess ? null : (0, import_react2.createElement)("div", { style: { marginTop: 6, fontSize: 11, color: "var(--dsw-alias-state-warn-primary,#b45309)" } }, t("fixedPinForced")),
-            // 高级选项（默认折叠）：仅 Access 开启时有意义——「额外要求 8 位 PIN」纵深防御
-            fAccess ? (0, import_react2.createElement)(
+              }),
+              (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 30, padding: "0 12px", fontSize: 12 }, onClick: saveFixedHostname, disabled: fixedBusy }, t("fixedSave"))
+            ),
+            fHostname ? (0, import_react2.createElement)("div", { style: { marginTop: 4, fontSize: 11, color: "var(--dsw-alias-state-success-primary,#15803d)" } }, fmt(t, "fixedSaved", { hostname: fHostname })) : null,
+            // 初始化向导：① 登录 ② 建隧道+绑 DNS ③ 开启
+            (0, import_react2.createElement)("div", { style: { ...styles.muted, marginTop: 10, fontWeight: 600 } }, t("fixedSetupWizard")),
+            (0, import_react2.createElement)(
               "div",
-              { style: { marginTop: 8, borderTop: "1px solid var(--dsw-alias-border-l2,#e5e7eb)", paddingTop: 8 } },
+              { style: { marginTop: 6, fontSize: 12, color: "var(--dsw-alias-label-secondary,#6b7280)", lineHeight: 1.6 } },
+              // ① 登录
               (0, import_react2.createElement)(
                 "div",
-                { style: { display: "flex", alignItems: "center", gap: 8, cursor: "pointer", userSelect: "none", fontSize: 12, color: "var(--dsw-alias-label-secondary,#6b7280)" }, onClick: () => setFixedAdvOpen(!fixedAdvOpen) },
-                (0, import_react2.createElement)("span", null, t("fixedAdvanced")),
-                (0, import_react2.createElement)("span", { style: { marginLeft: "auto", fontSize: 10, color: "var(--dsw-alias-label-tertiary,#8b93a1)" } }, fixedAdvOpen ? "\u25B4" : "\u25BE")
+                { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } },
+                (0, import_react2.createElement)("span", null, fCert ? `\u2705 ${t("fixedStep1Done")}` : t("fixedStep1")),
+                fCert ? null : (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 26, padding: "0 10px", fontSize: 12 }, onClick: runFixedLogin, disabled: fixedBusy }, t("fixedLoginBtn"))
               ),
-              (0, import_react2.createElement)("div", { style: { marginTop: 2, fontSize: 11, color: "var(--dsw-alias-label-tertiary,#8b93a1)" } }, t("fixedAdvancedHint")),
-              fixedAdvOpen ? (0, import_react2.createElement)(
+              // 登录进行中/授权链接
+              !fCert && status?.fixedLogin?.url ? (0, import_react2.createElement)(
                 "div",
-                { style: { marginTop: 8 } },
+                { style: { marginTop: 4, fontSize: 11, color: "var(--dsw-alias-state-warn-primary,#b45309)", lineHeight: 1.5 } },
+                t("fixedLoginHint"),
                 (0, import_react2.createElement)(
                   "div",
-                  { style: { display: "flex", alignItems: "center", gap: 8 } },
-                  (0, import_react2.createElement)("span", { style: { fontSize: 12, color: "var(--dsw-alias-label-secondary,#6b7280)" } }, t("fixedPinTitle")),
-                  (0, import_react2.createElement)("button", {
-                    style: { ...styles.btn, height: 28, padding: "0 12px", fontSize: 12, fontWeight: fPinAlways ? 600 : 400, background: fPinAlways ? "var(--dsw-alias-button-primary-fill, var(--dsw-alias-brand-primary,#4f6ef7))" : "var(--dsw-alias-bg-layer-1,#fff)", color: fPinAlways ? "var(--dsw-alias-label-primary-foreground, #fff)" : "var(--dsw-alias-label-primary,inherit)" },
-                    onClick: () => setFixedPinAlways(true)
-                  }, t("on")),
-                  (0, import_react2.createElement)("button", {
-                    style: { ...styles.btn, height: 28, padding: "0 12px", fontSize: 12, fontWeight: !fPinAlways ? 600 : 400, background: "var(--dsw-alias-bg-layer-1,#fff)", color: "var(--dsw-alias-label-primary,inherit)" },
-                    onClick: () => setFixedPinAlways(false)
-                  }, t("off"))
+                  null,
+                  (0, import_react2.createElement)("a", { href: status.fixedLogin.url, target: "_blank", rel: "noreferrer", style: { color: "var(--dsw-alias-brand-primary,#4f6ef7)", textDecoration: "underline" } }, t("fixedOpenUrl"))
+                )
+              ) : null,
+              // ② 初始化
+              (0, import_react2.createElement)(
+                "div",
+                { style: { display: "flex", alignItems: "center", gap: 8, marginTop: 4, flexWrap: "wrap" } },
+                (0, import_react2.createElement)("span", null, fTunnel && fDns ? `\u2705 ${t("fixedStep2Done")}` : t("fixedStep2")),
+                !(fTunnel && fDns) ? (0, import_react2.createElement)("button", {
+                  style: { ...styles.btn, height: 26, padding: "0 10px", fontSize: 12 },
+                  onClick: runFixedSetup,
+                  disabled: fixedBusy || !fCert || !fHostname,
+                  title: !fCert ? t("fixedNeedLoginFirst") : !fHostname ? t("fixedNeedHostname") : ""
+                }, fixedBusy ? t("fixedSetupBusy") : t("fixedSetupBtn")) : null
+              ),
+              // ③ 开启/运行
+              (0, import_react2.createElement)(
+                "div",
+                { style: { marginTop: 8, padding: "7px 9px", borderRadius: 8, fontSize: 11, lineHeight: 1.5, background: fixedRunning ? "rgba(22,163,74,.08)" : fixedStarting ? "rgba(217,119,6,.10)" : "rgba(220,38,38,.08)", color: fixedRunning ? "var(--dsw-alias-state-success-primary,#15803d)" : fixedStarting ? "var(--dsw-alias-state-warn-primary,#b45309)" : "var(--dsw-alias-state-error-primary,#dc2626)" } },
+                fixedRunning ? fmt(t, "fixedRuntimeLive", { port: status?.proxyPort ?? "\u2014" }) : fixedStarting ? tunnelPhase === "downloading" ? fmt(t, "fixedRuntimeDownloading", { s: elapsed(tunnelStateStarted) }) : fmt(t, "fixedRuntimeStarting", { detail: tunnelStateDetail || fmt(t, "connecting", { s: elapsed(tunnelStateStarted), suffix: "" }) }) : tunnelPhase === "error" ? fmt(t, "fixedRuntimeError", { detail: tunnelStateDetail || t("unknownError") }) : t("fixedRuntimeStopped")
+              ),
+              fixedRunning ? (0, import_react2.createElement)(
+                "div",
+                { style: { marginTop: 8 } },
+                (0, import_react2.createElement)("div", { style: { fontSize: 12, fontWeight: 600, color: "var(--dsw-alias-state-success-primary,#15803d)" } }, t("fixedRunning")),
+                (0, import_react2.createElement)("img", { src: status.tunnelQr, alt: "Fixed QR", style: styles.qr }),
+                (0, import_react2.createElement)("div", { style: styles.code }, tunnelUrl),
+                fixedPinRequired && status.accessToken ? customPin?.which === "public" ? customPinRow("public") : (0, import_react2.createElement)(
+                  "div",
+                  { style: { marginTop: 6, fontSize: 12, color: "var(--dsw-alias-label-secondary,#6b7280)", lineHeight: 1.5 } },
+                  fmt(t, status?.publicPinCustom ? "wanPinCustom" : "fixedWanPin", { pin: status.accessToken }),
+                  customBtn("public"),
+                  status?.publicPinCustom ? (0, import_react2.createElement)("div", { style: { marginTop: 2, fontSize: 11, color: "var(--dsw-alias-state-warn-primary,#b45309)" } }, t("pinCustomHint")) : null
+                ) : null,
+                (0, import_react2.createElement)("button", { style: styles.btn, onClick: stopTunnel }, t("fixedStop"))
+              ) : (0, import_react2.createElement)(
+                "div",
+                { style: { marginTop: 6 } },
+                (0, import_react2.createElement)("button", {
+                  style: { ...styles.primary },
+                  onClick: startFixedTunnel,
+                  disabled: fixedBusy || !fTunnel || !fDns || !fHostname
+                }, t("fixedEnableBtn")),
+                (!fTunnel || !fDns) && fHostname ? (0, import_react2.createElement)(
+                  "div",
+                  { style: { marginTop: 4, fontSize: 11, color: "var(--dsw-alias-state-warn-primary,#b45309)" } },
+                  !fCert ? t("fixedNeedLoginFirst") : t("fixedNeedSetup")
+                ) : null
+              )
+            ),
+            // Cloudflare Access 开关（推荐）
+            (0, import_react2.createElement)(
+              "div",
+              { style: { borderTop: "1px solid var(--dsw-alias-border-l2,#e5e7eb)", marginTop: 10, paddingTop: 8 } },
+              (0, import_react2.createElement)(
+                "div",
+                { style: { display: "flex", alignItems: "center", gap: 8 } },
+                (0, import_react2.createElement)("span", { style: { fontSize: 12, color: "var(--dsw-alias-label-secondary,#6b7280)" } }, t("fixedAccessTitle")),
+                (0, import_react2.createElement)("button", {
+                  style: { ...styles.btn, height: 28, padding: "0 12px", fontSize: 12, fontWeight: fAccess ? 600 : 400, background: fAccess ? "var(--dsw-alias-button-primary-fill, var(--dsw-alias-brand-primary,#4f6ef7))" : "var(--dsw-alias-bg-layer-1,#fff)", color: fAccess ? "var(--dsw-alias-label-primary-foreground, #fff)" : "var(--dsw-alias-label-primary,inherit)" },
+                  onClick: () => setFixedAccess(true)
+                }, t("on")),
+                (0, import_react2.createElement)("button", {
+                  style: { ...styles.btn, height: 28, padding: "0 12px", fontSize: 12, fontWeight: !fAccess ? 600 : 400, background: !fAccess ? "var(--dsw-alias-state-error-primary,#dc2626)" : "var(--dsw-alias-bg-layer-1,#fff)", color: !fAccess ? "#fff" : "var(--dsw-alias-label-primary,inherit)" },
+                  onClick: () => setFixedAccess(false)
+                }, t("off")),
+                // 配置引导：内嵌 CF Dashboard 步骤（比外链教程更少跳转）
+                (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 28, padding: "0 10px", fontSize: 11, marginLeft: "auto" }, onClick: () => setFixedGuideOpen(true) }, t("fixedGuideBtn"))
+              ),
+              (0, import_react2.createElement)(
+                "div",
+                { style: { marginTop: 4, fontSize: 11, lineHeight: 1.5, color: fAccess ? "var(--dsw-alias-label-tertiary,#8b93a1)" : "var(--dsw-alias-state-warn-primary,#b45309)" } },
+                fAccess ? fAccessVerified ? t("fixedAccessHintOn") : `\u{1F512} ${fAccessCheckDetail || t("fixedAccessUnverified")}` : t("fixedAccessHintOff")
+              ),
+              fAccess ? (0, import_react2.createElement)("button", {
+                style: { ...styles.btn, height: 26, padding: "0 10px", fontSize: 11, marginTop: 6 },
+                disabled: fixedBusy || !fixedRunning,
+                onClick: async () => {
+                  setFixedBusy(true);
+                  try {
+                    setStatus(await call(POCKET_ENDPOINTS.fixedVerifyAccess, {}));
+                  } catch (err) {
+                    setError(err.message);
+                  } finally {
+                    setFixedBusy(false);
+                  }
+                }
+              }, "\u91CD\u65B0\u9A8C\u8BC1 Access") : null,
+              // PIN 策略：Access 关 → 强制 PIN（安全提示，主界面直接显示，不藏）
+              fAccess ? null : (0, import_react2.createElement)("div", { style: { marginTop: 6, fontSize: 11, color: "var(--dsw-alias-state-warn-primary,#b45309)" } }, t("fixedPinForced")),
+              // 高级选项（默认折叠）：仅 Access 开启时有意义——「额外要求 8 位 PIN」纵深防御
+              fAccess ? (0, import_react2.createElement)(
+                "div",
+                { style: { marginTop: 8, borderTop: "1px solid var(--dsw-alias-border-l2,#e5e7eb)", paddingTop: 8 } },
+                (0, import_react2.createElement)(
+                  "div",
+                  { style: { display: "flex", alignItems: "center", gap: 8, cursor: "pointer", userSelect: "none", fontSize: 12, color: "var(--dsw-alias-label-secondary,#6b7280)" }, onClick: () => setFixedAdvOpen(!fixedAdvOpen) },
+                  (0, import_react2.createElement)("span", null, t("fixedAdvanced")),
+                  (0, import_react2.createElement)("span", { style: { marginLeft: "auto", fontSize: 10, color: "var(--dsw-alias-label-tertiary,#8b93a1)" } }, fixedAdvOpen ? "\u25B4" : "\u25BE")
                 ),
-                (0, import_react2.createElement)("div", { style: { marginTop: 4, fontSize: 11, color: "var(--dsw-alias-label-tertiary,#8b93a1)" } }, fPinAlways ? t("fixedPinHintOn") : t("fixedPinHintOff"))
+                (0, import_react2.createElement)("div", { style: { marginTop: 2, fontSize: 11, color: "var(--dsw-alias-label-tertiary,#8b93a1)" } }, t("fixedAdvancedHint")),
+                fixedAdvOpen ? (0, import_react2.createElement)(
+                  "div",
+                  { style: { marginTop: 8 } },
+                  (0, import_react2.createElement)(
+                    "div",
+                    { style: { display: "flex", alignItems: "center", gap: 8 } },
+                    (0, import_react2.createElement)("span", { style: { fontSize: 12, color: "var(--dsw-alias-label-secondary,#6b7280)" } }, t("fixedPinTitle")),
+                    (0, import_react2.createElement)("button", {
+                      style: { ...styles.btn, height: 28, padding: "0 12px", fontSize: 12, fontWeight: fPinAlways ? 600 : 400, background: fPinAlways ? "var(--dsw-alias-button-primary-fill, var(--dsw-alias-brand-primary,#4f6ef7))" : "var(--dsw-alias-bg-layer-1,#fff)", color: fPinAlways ? "var(--dsw-alias-label-primary-foreground, #fff)" : "var(--dsw-alias-label-primary,inherit)" },
+                      onClick: () => setFixedPinAlways(true)
+                    }, t("on")),
+                    (0, import_react2.createElement)("button", {
+                      style: { ...styles.btn, height: 28, padding: "0 12px", fontSize: 12, fontWeight: !fPinAlways ? 600 : 400, background: "var(--dsw-alias-bg-layer-1,#fff)", color: "var(--dsw-alias-label-primary,inherit)" },
+                      onClick: () => setFixedPinAlways(false)
+                    }, t("off"))
+                  ),
+                  (0, import_react2.createElement)("div", { style: { marginTop: 4, fontSize: 11, color: "var(--dsw-alias-label-tertiary,#8b93a1)" } }, fPinAlways ? t("fixedPinHintOn") : t("fixedPinHintOff"))
+                ) : null
               ) : null
-            ) : null
+            )
           )
         )
       )
-    ),
+    ) : null,
     // 临时访客 PIN：授权记录持久化，会话/在线连接由当前进程管理。
-    (0, import_react2.createElement)(
-      "div",
-      { style: styles.block },
+    activeTab === "access" ? (0, import_react2.createElement)(
+      import_react2.Fragment,
+      null,
       (0, import_react2.createElement)(
         "div",
-        { style: { display: "flex", alignItems: "center", gap: 8 } },
-        (0, import_react2.createElement)("strong", { style: { fontSize: 13 } }, t("guestTitle")),
-        (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 28, padding: "0 12px", marginLeft: "auto" }, onClick: () => guestAction(POCKET_ENDPOINTS.guestSetEnabled, { on: status?.guestAccess?.enabled !== true }) }, status?.guestAccess?.enabled === true ? t("on") : t("off"))
-      ),
-      (0, import_react2.createElement)("div", { style: styles.muted }, t("guestHint")),
-      (0, import_react2.createElement)("div", { style: styles.warn, marginTop: 4 }, t("guestFullAccessWarning")),
-      newGuestPin ? (0, import_react2.createElement)(
-        "div",
-        { style: { marginTop: 10, padding: 10, borderRadius: 8, background: "rgba(22,163,74,.08)", color: "var(--dsw-alias-state-success-primary,#15803d)" } },
-        (0, import_react2.createElement)("div", { style: { fontSize: 12 } }, t("guestPinOnce")),
-        (0, import_react2.createElement)("div", { style: { fontSize: 22, fontWeight: 700, letterSpacing: 4 } }, newGuestPin.pin),
-        (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 28 }, onClick: () => copyText(newGuestPin.pin) }, t("guestCopy")),
-        (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 28, marginLeft: 6 }, onClick: () => setNewGuestPin(null) }, t("ok")),
-        copyNotice ? (0, import_react2.createElement)("div", { style: { marginTop: 5, fontSize: 11 } }, copyNotice) : null
-      ) : null,
-      status?.guestAccess?.enabled === true ? (0, import_react2.createElement)(
-        "div",
-        { style: { marginTop: 10 } },
+        { style: styles.block },
         (0, import_react2.createElement)(
           "div",
-          { style: { display: "grid", gridTemplateColumns: "1fr 110px 110px", gap: 6 } },
-          (0, import_react2.createElement)("input", { style: { minWidth: 0, height: 30, border: "1px solid var(--dsw-alias-border-l2,#d1d5db)", borderRadius: 8, padding: "0 8px" }, placeholder: t("guestLabel"), maxLength: 40, value: guestForm.label, onChange: (e) => setGuestForm((f) => ({ ...f, label: e.target.value })) }),
-          (0, import_react2.createElement)(
-            "select",
-            { style: { height: 32, borderRadius: 8 }, value: guestForm.durationMinutes, onChange: (e) => setGuestForm((f) => ({ ...f, durationMinutes: Number(e.target.value) })) },
-            [15, 60, 240, 1440].map((m) => (0, import_react2.createElement)("option", { key: m, value: m }, m < 60 ? `${m} ${t("guestMinutes")}` : `${m / 60} ${t("guestHours")}`))
-          ),
-          (0, import_react2.createElement)(
-            "select",
-            { style: { height: 32, borderRadius: 8 }, value: guestForm.scope, onChange: (e) => setGuestForm((f) => ({ ...f, scope: e.target.value })) },
-            (0, import_react2.createElement)("option", { value: "both" }, t("guestScopeBoth")),
-            (0, import_react2.createElement)("option", { value: "lan" }, t("guestScopeLan")),
-            (0, import_react2.createElement)("option", { value: "public" }, t("guestScopePublic"))
-          )
+          { style: { display: "flex", alignItems: "center", gap: 8 } },
+          (0, import_react2.createElement)("strong", { style: { fontSize: 13 } }, t("guestTitle")),
+          (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 28, padding: "0 12px", marginLeft: "auto" }, onClick: () => guestAction(POCKET_ENDPOINTS.guestSetEnabled, { on: status?.guestAccess?.enabled !== true }) }, status?.guestAccess?.enabled === true ? t("on") : t("off"))
         ),
-        (0, import_react2.createElement)("button", { style: { ...styles.primary, height: 32, marginTop: 8 }, onClick: createGuest }, t("guestCreate"))
-      ) : null,
-      (status?.guestAccess?.grants ?? []).filter((g) => g.state !== "expired" && g.state !== "revoked").map((g) => {
-        const seconds = Math.max(0, Math.floor((g.expiresAt - now) / 1e3));
-        const activeText = g.online > 0 ? fmt(t, "guestOnline", { count: g.online }) : g.recent > 0 ? t("guestRecent") : t("guestOffline");
-        return (0, import_react2.createElement)(
+        (0, import_react2.createElement)("div", { style: styles.muted }, t("guestHint")),
+        (0, import_react2.createElement)("div", { style: styles.warn, marginTop: 4 }, t("guestFullAccessWarning")),
+        newGuestPin ? (0, import_react2.createElement)(
           "div",
-          { key: g.id, style: { marginTop: 10, padding: 10, border: "1px solid var(--dsw-alias-border-l2,#e5e7eb)", borderRadius: 8 } },
-          (0, import_react2.createElement)("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, (0, import_react2.createElement)("strong", { style: { fontSize: 12 } }, g.label || t("guestUnnamed")), (0, import_react2.createElement)("span", { style: { marginLeft: "auto", fontSize: 11, color: g.online ? "var(--dsw-alias-state-success-primary,#15803d)" : "var(--dsw-alias-label-tertiary,#8b93a1)" } }, activeText)),
-          (0, import_react2.createElement)("div", { style: styles.muted }, `${g.scope === "both" ? t("guestScopeBoth") : g.scope === "lan" ? t("guestScopeLan") : t("guestScopePublic")} \xB7 ${fmt(t, "guestRemaining", { minutes: Math.ceil(seconds / 60) })}`),
+          { style: { marginTop: 10, padding: 10, borderRadius: 8, background: "rgba(22,163,74,.08)", color: "var(--dsw-alias-state-success-primary,#15803d)" } },
+          (0, import_react2.createElement)("div", { style: { fontSize: 12 } }, t("guestPinOnce")),
+          (0, import_react2.createElement)("div", { style: { fontSize: 22, fontWeight: 700, letterSpacing: 4 } }, newGuestPin.pin),
+          (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 28 }, onClick: () => copyText(newGuestPin.pin) }, t("guestCopy")),
+          (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 28, marginLeft: 6 }, onClick: () => setNewGuestPin(null) }, t("ok")),
+          copyNotice ? (0, import_react2.createElement)("div", { style: { marginTop: 5, fontSize: 11 } }, copyNotice) : null
+        ) : null,
+        status?.guestAccess?.enabled === true ? (0, import_react2.createElement)(
+          "div",
+          { style: { marginTop: 10 } },
           (0, import_react2.createElement)(
             "div",
-            { style: { display: "flex", gap: 6, marginTop: 7, flexWrap: "wrap" } },
-            (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 27, padding: "0 10px", fontSize: 11, color: "var(--dsw-alias-brand-primary,#4f6ef7)" }, onClick: () => createGuestShare(g) }, t("guestShare")),
-            (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 27, padding: "0 10px", fontSize: 11 }, onClick: () => guestAction(POCKET_ENDPOINTS.guestSetLogin, { id: g.id, on: !g.loginEnabled }) }, g.loginEnabled ? t("guestDisableLogin") : t("guestEnableLogin")),
-            (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 27, padding: "0 10px", fontSize: 11 }, onClick: () => guestAction(POCKET_ENDPOINTS.guestKick, { id: g.id }) }, t("guestKick")),
-            (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 27, padding: "0 10px", fontSize: 11, color: "var(--dsw-alias-state-error-primary,#dc2626)" }, onClick: () => guestAction(POCKET_ENDPOINTS.guestRevoke, { id: g.id }) }, t("guestRevoke"))
-          )
-        );
-      })
-    ),
+            { style: { display: "grid", gridTemplateColumns: "1fr 110px 110px", gap: 6 } },
+            (0, import_react2.createElement)("input", { style: { minWidth: 0, height: 30, border: "1px solid var(--dsw-alias-border-l2,#d1d5db)", borderRadius: 8, padding: "0 8px" }, placeholder: t("guestLabel"), maxLength: 40, value: guestForm.label, onChange: (e) => setGuestForm((f) => ({ ...f, label: e.target.value })) }),
+            (0, import_react2.createElement)(
+              "select",
+              { style: { height: 32, borderRadius: 8 }, value: guestForm.durationMinutes, onChange: (e) => setGuestForm((f) => ({ ...f, durationMinutes: Number(e.target.value) })) },
+              [15, 60, 240, 1440].map((m) => (0, import_react2.createElement)("option", { key: m, value: m }, m < 60 ? `${m} ${t("guestMinutes")}` : `${m / 60} ${t("guestHours")}`))
+            ),
+            (0, import_react2.createElement)(
+              "select",
+              { style: { height: 32, borderRadius: 8 }, value: guestForm.scope, onChange: (e) => setGuestForm((f) => ({ ...f, scope: e.target.value })) },
+              (0, import_react2.createElement)("option", { value: "both" }, t("guestScopeBoth")),
+              (0, import_react2.createElement)("option", { value: "lan" }, t("guestScopeLan")),
+              (0, import_react2.createElement)("option", { value: "public" }, t("guestScopePublic"))
+            )
+          ),
+          (0, import_react2.createElement)("button", { style: { ...styles.primary, height: 32, marginTop: 8 }, onClick: createGuest }, t("guestCreate"))
+        ) : null,
+        (status?.guestAccess?.grants ?? []).filter((g) => g.state !== "expired" && g.state !== "revoked").map((g) => {
+          const seconds = Math.max(0, Math.floor((g.expiresAt - now) / 1e3));
+          const activeText = g.online > 0 ? fmt(t, "guestOnline", { count: g.online }) : g.recent > 0 ? t("guestRecent") : t("guestOffline");
+          return (0, import_react2.createElement)(
+            "div",
+            { key: g.id, style: { marginTop: 10, padding: 10, border: "1px solid var(--dsw-alias-border-l2,#e5e7eb)", borderRadius: 8 } },
+            (0, import_react2.createElement)("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, (0, import_react2.createElement)("strong", { style: { fontSize: 12 } }, g.label || t("guestUnnamed")), (0, import_react2.createElement)("span", { style: { marginLeft: "auto", fontSize: 11, color: g.online ? "var(--dsw-alias-state-success-primary,#15803d)" : "var(--dsw-alias-label-tertiary,#8b93a1)" } }, activeText)),
+            (0, import_react2.createElement)("div", { style: styles.muted }, `${g.scope === "both" ? t("guestScopeBoth") : g.scope === "lan" ? t("guestScopeLan") : t("guestScopePublic")} \xB7 ${fmt(t, "guestRemaining", { minutes: Math.ceil(seconds / 60) })}`),
+            (0, import_react2.createElement)(
+              "div",
+              { style: { display: "flex", gap: 6, marginTop: 7, flexWrap: "wrap" } },
+              (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 27, padding: "0 10px", fontSize: 11, color: "var(--dsw-alias-brand-primary,#4f6ef7)" }, onClick: () => createGuestShare(g) }, t("guestShare")),
+              (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 27, padding: "0 10px", fontSize: 11 }, onClick: () => guestAction(POCKET_ENDPOINTS.guestSetLogin, { id: g.id, on: !g.loginEnabled }) }, g.loginEnabled ? t("guestDisableLogin") : t("guestEnableLogin")),
+              (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 27, padding: "0 10px", fontSize: 11 }, onClick: () => guestAction(POCKET_ENDPOINTS.guestKick, { id: g.id }) }, t("guestKick")),
+              (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 27, padding: "0 10px", fontSize: 11, color: "var(--dsw-alias-state-error-primary,#dc2626)" }, onClick: () => guestAction(POCKET_ENDPOINTS.guestRevoke, { id: g.id }) }, t("guestRevoke"))
+            )
+          );
+        })
+      )
+    ) : null,
     error ? (0, import_react2.createElement)("div", { style: { color: "var(--dsw-alias-state-error-primary,#dc2626)", fontSize: 12, marginTop: 8 } }, `\u274C ${error}`) : null,
     guestShare ? (0, import_react2.createElement)(
       "div",
@@ -2792,6 +2889,22 @@ function PocketSettingsTab({ rpcCall, t }) {
           { style: { display: "flex", gap: 8, marginTop: 16 } },
           (0, import_react2.createElement)("button", { style: { ...styles.btn, flex: 1 }, onClick: () => setLanToggleOpen(null) }, t("cancel")),
           (0, import_react2.createElement)("button", { style: { ...styles.primary, flex: 1 }, onClick: confirmLanToggle }, t("confirm"))
+        )
+      )
+    ) : null,
+    autoRestoreRiskOpen ? (0, import_react2.createElement)(
+      "div",
+      { style: { position: "fixed", inset: 0, zIndex: 1e4, background: "rgba(0,0,0,.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 } },
+      (0, import_react2.createElement)(
+        "div",
+        { style: { background: "var(--dsw-alias-bg-layer-1,#fff)", borderRadius: 12, maxWidth: 430, width: "100%", padding: "20px 22px", boxShadow: "0 8px 32px rgba(0,0,0,.18)" } },
+        (0, import_react2.createElement)("div", { style: { fontWeight: 600, fontSize: 15, color: "var(--dsw-alias-state-warn-primary,#b45309)" } }, t("autoRestoreRiskTitle")),
+        (0, import_react2.createElement)("div", { style: { marginTop: 10, fontSize: 13, lineHeight: 1.7 } }, t("autoRestoreRiskBody")),
+        (0, import_react2.createElement)(
+          "div",
+          { style: { display: "flex", gap: 8, marginTop: 16 } },
+          (0, import_react2.createElement)("button", { style: { ...styles.btn, flex: 1 }, onClick: () => setAutoRestoreRiskOpen(false) }, t("cancel")),
+          (0, import_react2.createElement)("button", { style: { ...styles.primary, flex: 1 }, onClick: confirmAutoRestore }, t("autoRestoreRiskConfirm"))
         )
       )
     ) : null,

@@ -727,15 +727,15 @@ test('公网隧道自动恢复：开启时持久化标记，重启后 restoreTun
   await service2.restoreTunnelIfNeeded();
   assert.equal(startCount, 2, '重启后自动拉起隧道');
 
-  // 手动关闭 → 标记清除 → 下次不自动恢复
+  // 手动关闭只关闭本次隧道；自动恢复是独立授权，标记仍保留。
   service2.stopTunnel();
   await new Promise((r) => setTimeout(r, 30));
   const afterClose = await fsp.readFile(statePath, 'utf8').catch(() => null);
-  assert.equal(afterClose, null, '关闭后删除标记');
+  assert.ok(afterClose, '关闭本次不撤销自动恢复授权');
   const service3 = createPocketService({ dshPort: 3080, port: 3081, home, internals });
   await service3.startProxy();
   await service3.restoreTunnelIfNeeded();
-  assert.equal(startCount, 2, '无标记不自动恢复');
+  assert.equal(startCount, 3, '授权仍在时下次重启继续自动恢复');
 
   await fsp.rm(home, { recursive: true, force: true });
 });

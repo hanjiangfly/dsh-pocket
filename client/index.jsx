@@ -7,7 +7,7 @@
 // 注：Web Push 已移除——浏览器推送依赖 Google FCM（Chrome）等境外服务，
 // 国内直连被墙，普通用户用不了。专注扫码同屏这一件事。
 
-import { createElement as h, useEffect, useState } from 'react';
+import { createElement as h, Fragment, useEffect, useState } from 'react';
 
 import { POCKET_RPC_CHANNEL, POCKET_ENDPOINTS, redactStatus, compareVersions } from './api.js';
 import { mobileApply } from './mobile/mobile-apply.tsx';
@@ -124,6 +124,8 @@ function installPublicAccessIndicators(ctx, rpcCall, t) {
 
 function PocketSettingsTab({ rpcCall, t }) {
   const [status, setStatus] = useState(null);
+  const [activeTab, setActiveTab] = useState('access');
+  const [autoRestoreRiskOpen, setAutoRestoreRiskOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [tunnelState, setTunnelState] = useState(null); // 隧道进度 {phase, detail, startedAt}
@@ -418,6 +420,14 @@ function PocketSettingsTab({ rpcCall, t }) {
       setError(err.message);
     }
   };
+  const setAutoRestore = async (on) => {
+    if (on) { setAutoRestoreRiskOpen(true); return; }
+    try { setStatus(await call(POCKET_ENDPOINTS.tunnelSetAutoRestore, { on: false })); } catch (err) { setError(err.message); }
+  };
+  const confirmAutoRestore = async () => {
+    setAutoRestoreRiskOpen(false);
+    try { setStatus(await call(POCKET_ENDPOINTS.tunnelSetAutoRestore, { on: true })); } catch (err) { setError(err.message); }
+  };
   const guestAction = async (endpoint, payload = {}) => {
     try {
       const r = await call(endpoint, payload);
@@ -568,6 +578,10 @@ function PocketSettingsTab({ rpcCall, t }) {
     : remoteState.kind === 'connecting' ? t('remoteSummaryConnectingDetail')
       : remoteState.kind === 'problem' ? fmt(t, 'remoteSummaryProblemDetail', { detail: remoteState.detail || t('fixedRuntimeStopped') })
         : remoteState.detail === 'fixed-stopped' ? t('remoteSummaryLocalFixedDetail') : t('remoteSummaryLocalDetail');
+  const tabButton = (id, label) => h('button', {
+    style: { ...styles.btn, height: 30, padding: '0 11px', fontSize: 12, fontWeight: activeTab === id ? 600 : 400, background: activeTab === id ? 'var(--dsw-alias-button-primary-fill,var(--dsw-alias-brand-primary,#4f6ef7))' : 'var(--dsw-alias-bg-layer-1,#fff)', color: activeTab === id ? 'var(--dsw-alias-label-primary-foreground,#fff)' : 'var(--dsw-alias-label-primary,inherit)' },
+    onClick: () => setActiveTab(id),
+  }, label);
 
   return h('div', { style: styles.card },
     h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 } },
@@ -594,6 +608,30 @@ function PocketSettingsTab({ rpcCall, t }) {
       ),
       h('div', { style: { ...styles.muted, marginTop: 4, wordBreak: 'break-word' } }, remoteSummaryDetail),
     ),
+
+    h('div', { style: { display: 'flex', gap: 6, marginTop: 14, borderBottom: '1px solid var(--dsw-alias-border-l2,#e5e7eb)', paddingBottom: 10, flexWrap: 'wrap' } },
+      tabButton('access', t('tabAccess')), tabButton('network', t('tabNetwork')), tabButton('security', t('tabSecurity')),
+    ),
+
+    activeTab === 'access' ? h('div', null,
+      h('div', { style: styles.block },
+        h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+          h('strong', { style: { fontSize: 13 } }, t('autoRestoreTitle')),
+          h('button', { style: { ...styles.btn, height: 28, padding: '0 12px', fontSize: 12, marginLeft: 'auto', fontWeight: status?.publicAutoRestore ? 600 : 400, background: status?.publicAutoRestore ? 'var(--dsw-alias-button-primary-fill,var(--dsw-alias-brand-primary,#4f6ef7))' : 'var(--dsw-alias-bg-layer-1,#fff)', color: status?.publicAutoRestore ? 'var(--dsw-alias-label-primary-foreground,#fff)' : 'var(--dsw-alias-label-primary,inherit)' }, onClick: () => setAutoRestore(status?.publicAutoRestore !== true) }, status?.publicAutoRestore ? t('on') : t('off')),
+        ),
+        h('div', { style: { ...styles.muted, marginTop: 4 } }, status?.publicAutoRestore ? t('autoRestoreHintOn') : t('autoRestoreHintOff')),
+      ),
+      h('div', { style: styles.block },
+        h('strong', { style: { fontSize: 13 } }, t('accessCurrentLinks')),
+        lanUrl ? h('div', { style: { marginTop: 8 } }, h('img', { src: status?.lanQr, alt: 'LAN QR', style: { ...styles.qr, width: 150, height: 150 } }), h('div', { style: styles.code }, lanUrl)) : null,
+        tunnelUrl ? h('div', { style: { marginTop: 8 } }, h('img', { src: status?.tunnelQr, alt: 'Public QR', style: { ...styles.qr, width: 150, height: 150 } }), h('div', { style: styles.code }, tunnelUrl)) : h('div', { style: { ...styles.muted, marginTop: 8 } }, t('accessNoPublic')),
+      ),
+    ) : null,
+    activeTab === 'security' ? h('div', { style: styles.block },
+      h('strong', { style: { fontSize: 13 } }, t('securitySummary')),
+      h('div', { style: { ...styles.muted, marginTop: 6 } }, t('securityHint')),
+      h('div', { style: { ...styles.warn, marginTop: 8 } }, fAccess && fAccessVerified ? t('remoteAccessVerified') : t('remoteAccessUnverified')),
+    ) : null,
 
     // 桌面端不显示更新/重启横幅（更新由 DSH Desktop 管理），也不需要额外提示
 
@@ -634,6 +672,8 @@ function PocketSettingsTab({ rpcCall, t }) {
         : fmt(t, 'versionRange', { cur: updateInfo.current, latest: updateInfo.latest })),
     ) : null,
 
+    // 网络配置：局域网、虚拟局域网与两种公网隧道集中在这里，避免日常扫码页面过长。
+    activeTab === 'network' ? h(Fragment, null,
     // 局域网
     h('div', { style: styles.block },
       h('div', { style: { fontWeight: 600, fontSize: 13 } }, t('lanTitle')),
@@ -919,7 +959,10 @@ function PocketSettingsTab({ rpcCall, t }) {
       ),
     ),
 
+    ) : null,
+
     // 临时访客 PIN：授权记录持久化，会话/在线连接由当前进程管理。
+    activeTab === 'access' ? h(Fragment, null,
     h('div', { style: styles.block },
       h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
         h('strong', { style: { fontSize: 13 } }, t('guestTitle')),
@@ -959,6 +1002,7 @@ function PocketSettingsTab({ rpcCall, t }) {
         );
       }),
     ),
+    ) : null,
 
     error ? h('div', { style: { color: 'var(--dsw-alias-state-error-primary,#dc2626)', fontSize: 12, marginTop: 8 } }, `❌ ${error}`) : null,
 
@@ -990,6 +1034,17 @@ function PocketSettingsTab({ rpcCall, t }) {
         h('div', { style: { display: 'flex', gap: 8, marginTop: 16 } },
           h('button', { style: { ...styles.btn, flex: 1 }, onClick: () => setLanToggleOpen(null) }, t('cancel')),
           h('button', { style: { ...styles.primary, flex: 1 }, onClick: confirmLanToggle }, t('confirm')),
+        ),
+      ),
+    ) : null,
+
+    autoRestoreRiskOpen ? h('div', { style: { position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 } },
+      h('div', { style: { background: 'var(--dsw-alias-bg-layer-1,#fff)', borderRadius: 12, maxWidth: 430, width: '100%', padding: '20px 22px', boxShadow: '0 8px 32px rgba(0,0,0,.18)' } },
+        h('div', { style: { fontWeight: 600, fontSize: 15, color: 'var(--dsw-alias-state-warn-primary,#b45309)' } }, t('autoRestoreRiskTitle')),
+        h('div', { style: { marginTop: 10, fontSize: 13, lineHeight: 1.7 } }, t('autoRestoreRiskBody')),
+        h('div', { style: { display: 'flex', gap: 8, marginTop: 16 } },
+          h('button', { style: { ...styles.btn, flex: 1 }, onClick: () => setAutoRestoreRiskOpen(false) }, t('cancel')),
+          h('button', { style: { ...styles.primary, flex: 1 }, onClick: confirmAutoRestore }, t('autoRestoreRiskConfirm')),
         ),
       ),
     ) : null,

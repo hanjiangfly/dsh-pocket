@@ -5,6 +5,7 @@ export const POCKET_ENDPOINTS = Object.freeze({
   status: 'pocket.status',
   tunnelStart: 'tunnel.start',
   tunnelStop: 'tunnel.stop',
+  tunnelSetAutoRestore: 'tunnel.setAutoRestore',
   version: 'pocket.version',
   update: 'pocket.update',
   restart: 'pocket.restart',
