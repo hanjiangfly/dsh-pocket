@@ -52,9 +52,12 @@ var POCKET_ENDPOINTS = Object.freeze({
   lanAuthSetEnabled: "lanAuth.setEnabled",
   lanSetOverride: "lan.setOverride",
   lanSetEnabled: "lan.setEnabled",
+  virtualUse: "virtual.use",
+  virtualRefresh: "virtual.refresh",
   pinSetCustom: "pin.setCustom",
   fixedSetHostname: "fixed.setHostname",
   fixedSetAccess: "fixed.setAccess",
+  fixedVerifyAccess: "fixed.verifyAccess",
   fixedSetPinAlways: "fixed.setPinAlways",
   fixedLogin: "fixed.login",
   fixedSetup: "fixed.setup"
@@ -96,6 +99,7 @@ function redactStatus(s) {
     lanQr: s?.lanQr ?? null,
     lanCandidates: Array.isArray(s?.lanCandidates) ? s.lanCandidates : [],
     lanIpOverride: s?.lanIpOverride ?? "",
+    virtualNetworks: Array.isArray(s?.virtualNetworks) ? s.virtualNetworks : [],
     tunnelRunning: s?.tunnelRunning === true,
     tunnelMode: s?.tunnelMode ?? null,
     tunnelUrl: s?.tunnelUrl ?? null,
@@ -103,7 +107,7 @@ function redactStatus(s) {
     tunnelState: s?.tunnelState ?? { phase: "idle" },
     dshPort: s?.dshPort ?? null,
     // 固定域名（命名隧道）状态与登录进程
-    fixed: s?.fixed ?? { hostname: "", accessEnabled: false, pinAlways: false, setup: { cert: false, tunnel: false, dns: false } },
+    fixed: s?.fixed ?? { hostname: "", accessEnabled: false, pinAlways: false, accessCheck: { state: "not-requested", detail: "" }, setup: { cert: false, tunnel: false, dns: false } },
     fixedLogin: s?.fixedLogin ?? null
   };
 }
@@ -1353,7 +1357,8 @@ var zh2 = {
   "subtitle": "\u624B\u673A\u626B\u7801\u6253\u5F00\u7684\u5C31\u662F\u7535\u8111\u4E0A\u7684\u8FD9\u4E2A\u754C\u9762\uFF0C\u5B9E\u65F6\u540C\u6B65",
   "developer": "\u5F00\u53D1\u8005\uFF1A\u7A0B\u5E8F\u5458\u5C11\u5317\u6668",
   "starAsk": "\u2B50 \u987A\u624B\u7559\u9897 Star\uFF0C\u4F5C\u8005\u80FD\u9AD8\u5174\u4E00\u6574\u5929",
-  "starCta": "\u884C\uFF0C\u7ED9\u4F60\u4E00\u9897 Star",
+  "starOriginal": "\u539F\u4F5C\u8005",
+  "starFork": "\u6211\u7684\u7248\u672C",
   "restarted": "\u{1F504} \u5DF2\u91CD\u542F",
   "ok": "\u77E5\u9053\u4E86",
   "bgHint": "\u8FDB\u7A0B\u5728\u540E\u53F0\u8FD0\u884C\uFF08\u4E0D\u6302\u7EC8\u7AEF\uFF09\u3002\u5982\u9700\u505C\u6B62\uFF1A{cmd}",
@@ -1397,6 +1402,19 @@ var zh2 = {
   "pinInvalid": "\u5BC6\u7801\u5FC5\u987B\u662F 8 \u4F4D\u6570\u5B57",
   "pinCustomHint": "\u81EA\u5B9A\u4E49\u540E\u5F00\u542F\u516C\u7F51\u4E0D\u518D\u81EA\u52A8\u6362\u65B0",
   "lanPinOff": "\u{1F513} \u5BC6\u7801\u5DF2\u5173\u95ED\uFF1A\u626B\u7801\u76F4\u8FDE\uFF0C\u65E0\u9700\u5BC6\u7801\uFF08\u4EC5\u540C\u4E00\u5C40\u57DF\u7F51\u8BBE\u5907\u53EF\u8BBF\u95EE\uFF1B\u516C\u7F51\u4ECD\u8981\u5BC6\u7801\uFF09",
+  "virtualTitle": "\u{1F310} \u865A\u62DF\u5C40\u57DF\u7F51\uFF08\u63A8\u8350\u81EA\u7528\uFF09",
+  "virtualHint": "Tailscale / ZeroTier\uFF1A\u624B\u673A\u548C\u7535\u8111\u52A0\u5165\u540C\u4E00\u865A\u62DF\u7F51\u7EDC\u540E\uFF0C\u4EFB\u4F55\u7F51\u7EDC\u4E0B\u90FD\u53EF\u5B89\u5168\u8BBF\u95EE\uFF0C\u65E0\u9700\u516C\u7F51\u57DF\u540D\u3002",
+  "virtualUse": "\u4E00\u952E\u9009\u7528",
+  "virtualSelected": "\u6B63\u5728\u4F7F\u7528",
+  "virtualRefresh": "\u91CD\u65B0\u68C0\u6D4B",
+  "virtualNone": "\u672A\u68C0\u6D4B\u5230\u53EF\u7528\u7684 Tailscale \u6216 ZeroTier \u5730\u5740\u3002\u8BF7\u786E\u8BA4\u7535\u8111\u5BA2\u6237\u7AEF\u5DF2\u5B89\u88C5\u3001\u5DF2\u767B\u5F55\u5E76\u8FDE\u63A5\u7F51\u7EDC\u3002",
+  "virtualPhoneHint": "\u8BF7\u786E\u8BA4\u624B\u673A\u4E5F\u5DF2\u8FDE\u63A5\u540C\u4E00\u865A\u62DF\u7F51\u7EDC\uFF0C\u518D\u626B\u63CF\u6B64\u4E8C\u7EF4\u7801\u3002",
+  "virtualSafetyTitle": "\u{1F512} \u5B89\u5168\u63D0\u793A",
+  "virtualSafetyBody": "\u865A\u62DF\u5C40\u57DF\u7F51\u53EA\u5141\u8BB8\u5DF2\u52A0\u5165\u7F51\u7EDC\u7684\u8BBE\u5907\u8BBF\u95EE\uFF1B\u4ECD\u5EFA\u8BAE\u4FDD\u7559 DSH PIN\uFF0C\u4F5C\u4E3A\u7B2C\u4E8C\u9053\u4FDD\u62A4\u3002",
+  "virtualPinOff": "\u26A0 PIN \u5DF2\u5173\u95ED\uFF1A\u540C\u4E00\u865A\u62DF\u7F51\u7EDC\u5185\u7684\u5DF2\u6388\u6743\u8BBE\u5907\u53EF\u76F4\u63A5\u8FDB\u5165 DSH\u3002",
+  "virtualPinOffTitle": "\u5173\u95ED\u865A\u62DF\u5C40\u57DF\u7F51 PIN\uFF1F",
+  "virtualPinOffBody": "\u52A0\u5165\u540C\u4E00 Tailscale / ZeroTier \u7F51\u7EDC\u7684\u8BBE\u5907\u5C06\u53EF\u76F4\u63A5\u8FDB\u5165 DSH\u3002\u8BF7\u786E\u8BA4\u8FD9\u4E9B\u8BBE\u5907\u90FD\u7531\u4F60\u63A7\u5236\u3002",
+  "virtualPinOffConfirm": "\u4ECD\u7136\u5173\u95ED",
   "lanStarting": "\u4EE3\u7406\u672A\u5C31\u7EEA\u2026",
   "wanTitle": "\u{1F310} \u516C\u7F51\uFF08\u4EBA\u5728\u5916\u9762\uFF09",
   "wanHint": "\u4EFB\u4F55\u7F51\u7EDC\u626B\u7801\u5373\u7528\uFF08URL \u6BCF\u6B21\u91CD\u542F\u81EA\u52A8\u6362\u65B0\uFF09",
@@ -1469,11 +1487,17 @@ var zh2 = {
   "fixedStep3": "\u2462 \u5F00\u542F\u56FA\u5B9A\u57DF\u540D",
   "fixedEnableBtn": "\u5F00\u542F\u56FA\u5B9A\u57DF\u540D",
   "fixedRunning": "\u2705 \u56FA\u5B9A\u57DF\u540D\u8FD0\u884C\u4E2D",
+  "fixedRuntimeLive": "\u25CF \u672C\u5730 cloudflared \u5DF2\u8FD0\u884C\u5E76\u8FDE\u63A5 Cloudflare\uFF08\u4EE3\u7406\u7AEF\u53E3 {port}\uFF09",
+  "fixedRuntimeStopped": "\u25CB \u672C\u5730\u96A7\u9053\u672A\u8FD0\u884C\uFF1B\u57DF\u540D\u4F1A\u663E\u793A Cloudflare 1033\uFF0C\u70B9\u51FB\u300C\u5F00\u542F\u56FA\u5B9A\u57DF\u540D\u300D\u542F\u52A8",
+  "fixedRuntimeDownloading": "\u25CC \u6B63\u5728\u4E0B\u8F7D cloudflared\uFF08\u5DF2\u7B49\u5F85 {s} \u79D2\uFF09",
+  "fixedRuntimeStarting": "\u25CC \u6B63\u5728\u542F\u52A8\u5E76\u8FDE\u63A5 Cloudflare\uFF1A{detail}",
+  "fixedRuntimeError": "\u25CF \u672C\u5730\u96A7\u9053\u542F\u52A8\u5931\u8D25\uFF1A{detail}",
   "fixedStop": "\u5173\u95ED\u56FA\u5B9A\u57DF\u540D",
   "fixedWanPin": "\u{1F510} \u8BBF\u95EE\u5BC6\u7801\uFF1A{pin}\uFF08\u56FA\u5B9A\u57DF\u540D\uFF1B\u624B\u673A\u6253\u5F00\u9700\u8F93\u5165\uFF09",
   "fixedAccessTitle": "Cloudflare Access\uFF08\u63A8\u8350 \xB7 \u8FB9\u7F18 MFA\uFF09",
   "fixedAccessHintOn": "\u5DF2\u4E3A\u8BE5\u57DF\u540D\u542F\u7528 Access\uFF1A\u672A\u8BA4\u8BC1\u8BF7\u6C42\u5728 Cloudflare \u8FB9\u7F18\u5C31\u88AB\u62E6\u622A\uFF0C\u624B\u673A\u9700\u901A\u8FC7 MFA\uFF08\u90AE\u7BB1\u9A8C\u8BC1\u7801/\u786C\u4EF6\u5BC6\u94A5\u7B49\uFF09",
   "fixedAccessHintOff": "\u672A\u542F\u7528 Access\uFF1A\u56FA\u5B9A\u57DF\u540D\u5F3A\u5236\u8981\u6C42 8 \u4F4D PIN\uFF08\u5426\u5219 DSH \u76F4\u63A5\u66B4\u9732\u516C\u7F51\uFF09",
+  "fixedAccessUnverified": "\u{1F512} Access \u5C1A\u672A\u9A8C\u8BC1\uFF0CPIN \u5DF2\u5F3A\u5236\u5F00\u542F",
   "fixedAccessDocs": "Access \u914D\u7F6E\u6559\u7A0B",
   "fixedPinTitle": "\u989D\u5916\u8981\u6C42 8 \u4F4D PIN",
   "fixedPinHintOn": "Access \u4E4B\u5916\u518D\u52A0\u4E00\u9053 8 \u4F4D\u5BC6\u7801\uFF08\u7EB5\u6DF1\u9632\u5FA1\uFF09",
@@ -1487,7 +1511,8 @@ var en2 = {
   "subtitle": "The phone shows this exact screen, live",
   "developer": "Developer: \u5C11\u5317\u6668 (shaobeichen)",
   "starAsk": "\u2B50 Drop a Star if it helped \u2014 it makes the author\u2019s day",
-  "starCta": "\u2605 Give a Star",
+  "starOriginal": "Original author",
+  "starFork": "My version",
   "restarted": "\u{1F504} Restarted",
   "ok": "Got it",
   "bgHint": "Running in the background (not attached to a terminal). To stop: {cmd}",
@@ -1531,6 +1556,19 @@ var en2 = {
   "pinInvalid": "PIN must be exactly 8 digits",
   "pinCustomHint": "custom PINs are not rotated on tunnel start",
   "lanPinOff": "\u{1F513} PIN off \u2014 scan & go, no PIN (LAN devices only; public still requires PIN)",
+  "virtualTitle": "\u{1F310} Virtual LAN (recommended for personal use)",
+  "virtualHint": "Tailscale / ZeroTier: once the phone and computer join the same virtual network, access safely from anywhere without a public domain.",
+  "virtualUse": "Use this address",
+  "virtualSelected": "In use",
+  "virtualRefresh": "Detect again",
+  "virtualNone": "No usable Tailscale or ZeroTier address was detected. Make sure the desktop client is installed, signed in, and connected.",
+  "virtualPhoneHint": "Make sure the phone is connected to the same virtual network, then scan this QR code.",
+  "virtualSafetyTitle": "\u{1F512} Security note",
+  "virtualSafetyBody": "Only devices that joined this virtual network can access it. Keeping the DSH PIN adds a second layer of protection.",
+  "virtualPinOff": "\u26A0 PIN is off: authorized devices in this virtual network can enter DSH directly.",
+  "virtualPinOffTitle": "Turn off the Virtual LAN PIN?",
+  "virtualPinOffBody": "Devices that joined the same Tailscale / ZeroTier network can enter DSH directly. Confirm that you control all of those devices.",
+  "virtualPinOffConfirm": "Turn off anyway",
   "lanStarting": "Proxy starting\u2026",
   "wanTitle": "\u{1F310} Anywhere (public)",
   "wanHint": "Scan from any network (the URL changes on every restart)",
@@ -1603,11 +1641,17 @@ var en2 = {
   "fixedStep3": "\u2462 Enable the fixed domain",
   "fixedEnableBtn": "Enable fixed domain",
   "fixedRunning": "\u2705 Fixed domain is live",
+  "fixedRuntimeLive": "\u25CF Local cloudflared is running and connected to Cloudflare (proxy port {port})",
+  "fixedRuntimeStopped": "\u25CB Local tunnel is stopped; the domain will show Cloudflare 1033. Select \u201CEnable fixed domain\u201D to start it.",
+  "fixedRuntimeDownloading": "\u25CC Downloading cloudflared ({s}s elapsed)",
+  "fixedRuntimeStarting": "\u25CC Starting and connecting to Cloudflare: {detail}",
+  "fixedRuntimeError": "\u25CF Local tunnel failed to start: {detail}",
   "fixedStop": "Stop fixed domain",
   "fixedWanPin": "\u{1F510} PIN: {pin} (fixed domain; required on the phone)",
   "fixedAccessTitle": "Cloudflare Access (recommended \xB7 edge MFA)",
   "fixedAccessHintOn": "Access is enabled for this hostname: unauthenticated requests are blocked at the Cloudflare edge; the phone signs in with MFA (email code / hardware key, etc.)",
   "fixedAccessHintOff": "Access is off: the fixed domain requires an 8-digit PIN (otherwise DSH would be exposed directly to the internet)",
+  "fixedAccessUnverified": "\u{1F512} Access is not verified \u2014 the PIN is enforced",
   "fixedAccessDocs": "Access setup guide",
   "fixedPinTitle": "Also require an 8-digit PIN",
   "fixedPinHintOn": "An extra PIN on top of Access (defense in depth)",
@@ -1783,6 +1827,7 @@ function PocketSettingsTab({ rpcCall, t }) {
   };
   const [fixedHostnameInput, setFixedHostnameInput] = (0, import_react2.useState)("");
   const [fixedBusy, setFixedBusy] = (0, import_react2.useState)(false);
+  const [fixedStarting, setFixedStarting] = (0, import_react2.useState)(false);
   const [fixedOpen, setFixedOpen] = (0, import_react2.useState)(false);
   const [fixedAdvOpen, setFixedAdvOpen] = (0, import_react2.useState)(false);
   const [fixedGuideOpen, setFixedGuideOpen] = (0, import_react2.useState)(false);
@@ -1826,6 +1871,7 @@ function PocketSettingsTab({ rpcCall, t }) {
   };
   const doStartFixedTunnel = async () => {
     setFixedBusy(true);
+    setFixedStarting(true);
     setError(null);
     setTunnelState({ phase: "starting", detail: "\u6B63\u5728\u5F00\u542F\u56FA\u5B9A\u57DF\u540D\u2026", startedAt: Date.now() });
     try {
@@ -1834,6 +1880,7 @@ function PocketSettingsTab({ rpcCall, t }) {
       setError(err.message);
     } finally {
       setFixedBusy(false);
+      setFixedStarting(false);
     }
   };
   const setFixedAccess = async (on) => {
@@ -1864,6 +1911,7 @@ function PocketSettingsTab({ rpcCall, t }) {
     } catch {
     }
   };
+  const [virtualPinOffOpen, setVirtualPinOffOpen] = (0, import_react2.useState)(false);
   const [lanToggleOpen, setLanToggleOpen] = (0, import_react2.useState)(null);
   const requestLanToggle = (on) => setLanToggleOpen(on);
   const confirmLanToggle = async () => {
@@ -1880,6 +1928,20 @@ function PocketSettingsTab({ rpcCall, t }) {
   const setLanAddress = async (ip) => {
     try {
       setStatus(await call(POCKET_ENDPOINTS.lanSetOverride, { ip }));
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+  const useVirtualNetwork = async (ip) => {
+    try {
+      setStatus(await call(POCKET_ENDPOINTS.virtualUse, { ip }));
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+  const refreshVirtualNetworks = async () => {
+    try {
+      setStatus(await call(POCKET_ENDPOINTS.virtualRefresh, {}));
     } catch (err) {
       setError(err.message);
     }
@@ -1923,22 +1985,30 @@ function PocketSettingsTab({ rpcCall, t }) {
   );
   const customBtn = (which) => (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 26, padding: "0 10px", fontSize: 12, marginLeft: 8 }, onClick: () => setCustomPin({ which, value: "", err: null }) }, t("customize"));
   const lanUrl = status?.lanUrl;
+  const virtualNetworks = status?.virtualNetworks || [];
+  const activeVirtualNetwork = virtualNetworks.find((network) => network.ip === status?.lanIpOverride) ?? null;
+  const requestLanAuth = (on) => {
+    if (!on && activeVirtualNetwork) setVirtualPinOffOpen(true);
+    else void setLanAuth(on);
+  };
   const tunnelUrl = status?.tunnelUrl;
   const tunnelPhase = tunnelState?.phase ?? "idle";
   const tunnelStarting = ["downloading", "starting", "registering"].includes(tunnelPhase);
   const tunnelStateDetail = tunnelState?.detail ?? "";
   const tunnelStateStarted = tunnelState?.startedAt ?? null;
   const tunnelMode = status?.tunnelMode ?? null;
-  const fixedInfo = status?.fixed ?? { hostname: "", accessEnabled: false, pinAlways: false, setup: { cert: false, tunnel: false, dns: false } };
+  const fixedInfo = status?.fixed ?? { hostname: "", accessEnabled: false, pinAlways: false, accessCheck: { state: "not-requested", detail: "" }, setup: { cert: false, tunnel: false, dns: false } };
   const fHostname = fixedInfo.hostname ?? "";
   const fCert = fixedInfo.setup?.cert === true;
   const fTunnel = fixedInfo.setup?.tunnel === true;
   const fDns = fixedInfo.setup?.dns === true;
   const fAccess = fixedInfo.accessEnabled === true;
+  const fAccessVerified = fixedInfo.accessCheck?.state === "verified";
+  const fAccessCheckDetail = fixedInfo.accessCheck?.detail ?? "";
   const fPinAlways = fixedInfo.pinAlways === true;
   const fixedRunning = tunnelMode === "fixed" && Boolean(tunnelUrl);
   const quickRunning = tunnelMode !== "fixed" && Boolean(tunnelUrl);
-  const fixedPinRequired = !fAccess || fPinAlways;
+  const fixedPinRequired = !fAccess || !fAccessVerified || fPinAlways;
   const fixedStatus = !fHostname ? "unconfigured" : fixedRunning ? "running" : fTunnel && fDns ? "ready" : "pending";
   const fixedStatusLabel = fixedStatus === "unconfigured" ? t("fixedStatusUnconfigured") : fixedStatus === "running" ? t("fixedStatusRunning") : fixedStatus === "ready" ? t("fixedStatusReady") : t("fixedStatusPending");
   const fixedStatusColor = fixedStatus === "unconfigured" ? "var(--dsw-alias-label-tertiary,#8b93a1)" : fixedStatus === "running" ? "var(--dsw-alias-state-success-primary,#15803d)" : fixedStatus === "ready" ? "var(--dsw-alias-brand-primary,#4f6ef7)" : "var(--dsw-alias-state-warn-primary,#b45309)";
@@ -1960,9 +2030,11 @@ function PocketSettingsTab({ rpcCall, t }) {
         (0, import_react2.createElement)("div", { style: { whiteSpace: "nowrap" } }, t("developer")),
         (0, import_react2.createElement)("div", { style: { whiteSpace: "nowrap" } }, t("starAsk")),
         (0, import_react2.createElement)(
-          "a",
-          { href: "https://github.com/shaobeichen/dsh-pocket", target: "_blank", rel: "noreferrer", style: { color: "var(--dsw-alias-brand-primary,#4f6ef7)", fontSize: 12, lineHeight: 1.6, textDecoration: "underline" } },
-          t("starCta")
+          "span",
+          { style: { display: "inline-flex", gap: 6, alignItems: "center" } },
+          (0, import_react2.createElement)("a", { href: "https://github.com/shaobeichen/dsh-pocket", target: "_blank", rel: "noreferrer", style: { color: "var(--dsw-alias-brand-primary,#4f6ef7)", fontSize: 12, lineHeight: 1.6, textDecoration: "underline" } }, t("starOriginal")),
+          (0, import_react2.createElement)("span", null, "\xB7"),
+          (0, import_react2.createElement)("a", { href: "https://github.com/hanjiangfly/dsh-pocket", target: "_blank", rel: "noreferrer", style: { color: "var(--dsw-alias-brand-primary,#4f6ef7)", fontSize: 12, lineHeight: 1.6, textDecoration: "underline" } }, t("starFork"))
         )
       )
     ),
@@ -2048,11 +2120,11 @@ function PocketSettingsTab({ rpcCall, t }) {
           (0, import_react2.createElement)("span", { style: { fontSize: 12, color: "var(--dsw-alias-label-secondary,#6b7280)" } }, t("lanPin")),
           (0, import_react2.createElement)("button", {
             style: { ...styles.btn, height: 28, padding: "0 12px", fontSize: 12, fontWeight: status?.lanAuthEnabled !== false ? 600 : 400, background: status?.lanAuthEnabled !== false ? "var(--dsw-alias-button-primary-fill, var(--dsw-alias-brand-primary,#4f6ef7))" : "var(--dsw-alias-bg-layer-1,#fff)", color: status?.lanAuthEnabled !== false ? "var(--dsw-alias-label-primary-foreground, #fff)" : "var(--dsw-alias-label-primary,inherit)" },
-            onClick: () => setLanAuth(true)
+            onClick: () => requestLanAuth(true)
           }, t("on")),
           (0, import_react2.createElement)("button", {
             style: { ...styles.btn, height: 28, padding: "0 12px", fontSize: 12, fontWeight: status?.lanAuthEnabled === false ? 600 : 400, background: status?.lanAuthEnabled === false ? "var(--dsw-alias-state-error-primary,#dc2626)" : "var(--dsw-alias-bg-layer-1,#fff)", color: status?.lanAuthEnabled === false ? "#fff" : "var(--dsw-alias-label-primary,inherit)" },
-            onClick: () => setLanAuth(false)
+            onClick: () => requestLanAuth(false)
           }, t("off"))
         ),
         status?.lanAuthEnabled !== false ? customPin?.which === "lan" ? customPinRow("lan") : (0, import_react2.createElement)(
@@ -2064,9 +2136,43 @@ function PocketSettingsTab({ rpcCall, t }) {
         ) : (0, import_react2.createElement)(
           "div",
           { style: { marginTop: 6, fontSize: 12, color: "var(--dsw-alias-state-warn-primary,#b45309)", lineHeight: 1.5 } },
-          t("lanPinOff")
+          activeVirtualNetwork ? t("virtualPinOff") : t("lanPinOff")
         )
       ) : (0, import_react2.createElement)("div", { style: styles.muted }, t("lanStarting"))
+    ),
+    // 虚拟局域网：把已连接的 Tailscale / ZeroTier 网卡变成一键可用的专属二维码。
+    (0, import_react2.createElement)(
+      "div",
+      { style: styles.block },
+      (0, import_react2.createElement)("div", { style: { fontWeight: 600, fontSize: 13 } }, t("virtualTitle")),
+      (0, import_react2.createElement)("div", { style: { ...styles.muted, marginTop: 4 } }, t("virtualHint")),
+      (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 28, padding: "0 12px", fontSize: 12, marginTop: 8 }, onClick: refreshVirtualNetworks }, t("virtualRefresh")),
+      virtualNetworks.length === 0 ? (0, import_react2.createElement)("div", { style: { ...styles.warn, marginTop: 8 } }, t("virtualNone")) : virtualNetworks.map((network) => {
+        const selected = activeVirtualNetwork?.ip === network.ip;
+        return (0, import_react2.createElement)(
+          "div",
+          { key: `${network.kind}-${network.ip}`, style: { marginTop: 10, paddingTop: 10, borderTop: "1px dashed var(--dsw-alias-border-l2,#e5e7eb)" } },
+          (0, import_react2.createElement)(
+            "div",
+            { style: { display: "flex", alignItems: "center", gap: 8 } },
+            (0, import_react2.createElement)("span", { style: { fontSize: 12, fontWeight: 600 } }, `\u25CF ${network.label}`),
+            (0, import_react2.createElement)("span", { style: { ...styles.code, margin: 0, color: "var(--dsw-alias-label-secondary,#6b7280)" } }, network.ip),
+            (0, import_react2.createElement)("button", {
+              style: { ...styles.btn, marginLeft: "auto", height: 28, padding: "0 12px", fontSize: 12, ...selected ? { borderColor: "var(--dsw-alias-state-success-primary,#15803d)", color: "var(--dsw-alias-state-success-primary,#15803d)" } : {} },
+              onClick: () => useVirtualNetwork(network.ip)
+            }, selected ? t("virtualSelected") : t("virtualUse"))
+          ),
+          selected && network.url ? (0, import_react2.createElement)(
+            "div",
+            null,
+            (0, import_react2.createElement)("img", { src: network.qr, alt: `${network.label} QR`, style: styles.qr }),
+            (0, import_react2.createElement)("div", { style: styles.code }, network.url),
+            (0, import_react2.createElement)("div", { style: styles.muted }, t("virtualPhoneHint")),
+            (0, import_react2.createElement)("div", { style: { ...styles.warn, marginTop: 6 } }, t("virtualSafetyTitle")),
+            (0, import_react2.createElement)("div", { style: styles.muted }, t("virtualSafetyBody"))
+          ) : null
+        );
+      })
     ),
     // 公网
     (0, import_react2.createElement)(
@@ -2186,6 +2292,11 @@ function PocketSettingsTab({ rpcCall, t }) {
               }, fixedBusy ? t("fixedSetupBusy") : t("fixedSetupBtn")) : null
             ),
             // ③ 开启/运行
+            (0, import_react2.createElement)(
+              "div",
+              { style: { marginTop: 8, padding: "7px 9px", borderRadius: 8, fontSize: 11, lineHeight: 1.5, background: fixedRunning ? "rgba(22,163,74,.08)" : fixedStarting ? "rgba(217,119,6,.10)" : "rgba(220,38,38,.08)", color: fixedRunning ? "var(--dsw-alias-state-success-primary,#15803d)" : fixedStarting ? "var(--dsw-alias-state-warn-primary,#b45309)" : "var(--dsw-alias-state-error-primary,#dc2626)" } },
+              fixedRunning ? fmt(t, "fixedRuntimeLive", { port: status?.proxyPort ?? "\u2014" }) : fixedStarting ? tunnelPhase === "downloading" ? fmt(t, "fixedRuntimeDownloading", { s: elapsed(tunnelStateStarted) }) : fmt(t, "fixedRuntimeStarting", { detail: tunnelStateDetail || fmt(t, "connecting", { s: elapsed(tunnelStateStarted), suffix: "" }) }) : tunnelPhase === "error" ? fmt(t, "fixedRuntimeError", { detail: tunnelStateDetail || t("unknownError") }) : t("fixedRuntimeStopped")
+            ),
             fixedRunning ? (0, import_react2.createElement)(
               "div",
               { style: { marginTop: 8 } },
@@ -2237,8 +2348,22 @@ function PocketSettingsTab({ rpcCall, t }) {
             (0, import_react2.createElement)(
               "div",
               { style: { marginTop: 4, fontSize: 11, lineHeight: 1.5, color: fAccess ? "var(--dsw-alias-label-tertiary,#8b93a1)" : "var(--dsw-alias-state-warn-primary,#b45309)" } },
-              fAccess ? t("fixedAccessHintOn") : t("fixedAccessHintOff")
+              fAccess ? fAccessVerified ? t("fixedAccessHintOn") : `\u{1F512} ${fAccessCheckDetail || t("fixedAccessUnverified")}` : t("fixedAccessHintOff")
             ),
+            fAccess ? (0, import_react2.createElement)("button", {
+              style: { ...styles.btn, height: 26, padding: "0 10px", fontSize: 11, marginTop: 6 },
+              disabled: fixedBusy || !fixedRunning,
+              onClick: async () => {
+                setFixedBusy(true);
+                try {
+                  setStatus(await call(POCKET_ENDPOINTS.fixedVerifyAccess, {}));
+                } catch (err) {
+                  setError(err.message);
+                } finally {
+                  setFixedBusy(false);
+                }
+              }
+            }, "\u91CD\u65B0\u9A8C\u8BC1 Access") : null,
             // PIN 策略：Access 关 → 强制 PIN（安全提示，主界面直接显示，不藏）
             fAccess ? null : (0, import_react2.createElement)("div", { style: { marginTop: 6, fontSize: 11, color: "var(--dsw-alias-state-warn-primary,#b45309)" } }, t("fixedPinForced")),
             // 高级选项（默认折叠）：仅 Access 开启时有意义——「额外要求 8 位 PIN」纵深防御
@@ -2290,6 +2415,26 @@ function PocketSettingsTab({ rpcCall, t }) {
           { style: { display: "flex", gap: 8, marginTop: 16 } },
           (0, import_react2.createElement)("button", { style: { ...styles.btn, flex: 1 }, onClick: () => setLanToggleOpen(null) }, t("cancel")),
           (0, import_react2.createElement)("button", { style: { ...styles.primary, flex: 1 }, onClick: confirmLanToggle }, t("confirm"))
+        )
+      )
+    ) : null,
+    // 虚拟局域网允许关 PIN，但需单独确认，避免用户误以为它与普通家庭 LAN 等价。
+    virtualPinOffOpen ? (0, import_react2.createElement)(
+      "div",
+      { style: { position: "fixed", inset: 0, zIndex: 1e4, background: "rgba(0,0,0,.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 } },
+      (0, import_react2.createElement)(
+        "div",
+        { style: { background: "var(--dsw-alias-bg-layer-1,#fff)", borderRadius: 12, maxWidth: 420, width: "100%", padding: "20px 22px", boxShadow: "0 8px 32px rgba(0,0,0,.18)" } },
+        (0, import_react2.createElement)("div", { style: { fontWeight: 600, fontSize: 15, color: "var(--dsw-alias-state-warn-primary,#b45309)", marginBottom: 10 } }, t("virtualPinOffTitle")),
+        (0, import_react2.createElement)("div", { style: { fontSize: 13, lineHeight: 1.7, color: "var(--dsw-alias-label-primary,inherit)" } }, t("virtualPinOffBody")),
+        (0, import_react2.createElement)(
+          "div",
+          { style: { display: "flex", gap: 8, marginTop: 16 } },
+          (0, import_react2.createElement)("button", { style: { ...styles.btn, flex: 1 }, onClick: () => setVirtualPinOffOpen(false) }, t("cancel")),
+          (0, import_react2.createElement)("button", { style: { ...styles.primary, flex: 1, background: "var(--dsw-alias-state-error-primary,#dc2626)" }, onClick: () => {
+            setVirtualPinOffOpen(false);
+            void setLanAuth(false);
+          } }, t("virtualPinOffConfirm"))
         )
       )
     ) : null,
@@ -2374,7 +2519,7 @@ function PocketSettingsTab({ rpcCall, t }) {
       { style: { ...styles.block, textAlign: "center" } },
       (0, import_react2.createElement)(
         "a",
-        { href: "https://github.com/shaobeichen/dsh-pocket/issues", target: "_blank", rel: "noreferrer", style: { fontSize: 12, color: "var(--dsw-alias-label-secondary,#6b7280)", textDecoration: "none" } },
+        { href: "https://github.com/hanjiangfly/dsh-pocket/issues", target: "_blank", rel: "noreferrer", style: { fontSize: 12, color: "var(--dsw-alias-label-secondary,#6b7280)", textDecoration: "none" } },
         t("feedback")
       )
     )

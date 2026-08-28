@@ -203,6 +203,7 @@ function PocketSettingsTab({ rpcCall, t }) {
   // ---- 固定域名（命名隧道 + Cloudflare Access）----
   const [fixedHostnameInput, setFixedHostnameInput] = useState('');
   const [fixedBusy, setFixedBusy] = useState(false);
+  const [fixedStarting, setFixedStarting] = useState(false);
   const [fixedOpen, setFixedOpen] = useState(false); // 固定域名区块默认折叠（高级功能，展开才显示向导）
   const [fixedAdvOpen, setFixedAdvOpen] = useState(false); // 「高级选项」（额外 PIN 纵深防御）默认折叠
   const [fixedGuideOpen, setFixedGuideOpen] = useState(false); // Access 配置引导弹窗
@@ -251,6 +252,7 @@ function PocketSettingsTab({ rpcCall, t }) {
   };
   const doStartFixedTunnel = async () => {
     setFixedBusy(true);
+    setFixedStarting(true);
     setError(null);
     setTunnelState({ phase: 'starting', detail: '正在开启固定域名…', startedAt: Date.now() });
     try {
@@ -259,6 +261,7 @@ function PocketSettingsTab({ rpcCall, t }) {
       setError(err.message);
     } finally {
       setFixedBusy(false);
+      setFixedStarting(false);
     }
   };
   /** Cloudflare Access 开关（边缘 MFA；关闭时固定域名强制 PIN）。 */
@@ -293,6 +296,7 @@ function PocketSettingsTab({ rpcCall, t }) {
       setStatus((s) => ({ ...s, lanAuthEnabled: r.lanAuthEnabled }));
     } catch { /* 忽略 */ }
   };
+  const [virtualPinOffOpen, setVirtualPinOffOpen] = useState(false);
 
   // 局域网访问总开关：关闭后局域网扫码/链接直接失效（公网不受影响）。
   // 切换前弹窗确认（弹窗提醒）；服务端用 setLanEnabled 持久化，代理按 Host 实时拦截。
@@ -314,6 +318,20 @@ function PocketSettingsTab({ rpcCall, t }) {
   const setLanAddress = async (ip) => {
     try {
       setStatus(await call(POCKET_ENDPOINTS.lanSetOverride, { ip }));
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+  const useVirtualNetwork = async (ip) => {
+    try {
+      setStatus(await call(POCKET_ENDPOINTS.virtualUse, { ip }));
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+  const refreshVirtualNetworks = async () => {
+    try {
+      setStatus(await call(POCKET_ENDPOINTS.virtualRefresh, {}));
     } catch (err) {
       setError(err.message);
     }
@@ -358,6 +376,12 @@ function PocketSettingsTab({ rpcCall, t }) {
   const customBtn = (which) => h('button', { style: { ...styles.btn, height: 26, padding: '0 10px', fontSize: 12, marginLeft: 8 }, onClick: () => setCustomPin({ which, value: '', err: null }) }, t('customize'));
 
   const lanUrl = status?.lanUrl;
+  const virtualNetworks = status?.virtualNetworks || [];
+  const activeVirtualNetwork = virtualNetworks.find((network) => network.ip === status?.lanIpOverride) ?? null;
+  const requestLanAuth = (on) => {
+    if (!on && activeVirtualNetwork) setVirtualPinOffOpen(true);
+    else void setLanAuth(on);
+  };
   const tunnelUrl = status?.tunnelUrl;
   const tunnelPhase = tunnelState?.phase ?? 'idle';
   const tunnelStarting = ['downloading', 'starting', 'registering'].includes(tunnelPhase);
@@ -365,16 +389,18 @@ function PocketSettingsTab({ rpcCall, t }) {
   const tunnelStateStarted = tunnelState?.startedAt ?? null;
   // 固定域名（命名隧道）状态
   const tunnelMode = status?.tunnelMode ?? null;
-  const fixedInfo = status?.fixed ?? { hostname: '', accessEnabled: false, pinAlways: false, setup: { cert: false, tunnel: false, dns: false } };
+  const fixedInfo = status?.fixed ?? { hostname: '', accessEnabled: false, pinAlways: false, accessCheck: { state: 'not-requested', detail: '' }, setup: { cert: false, tunnel: false, dns: false } };
   const fHostname = fixedInfo.hostname ?? '';
   const fCert = fixedInfo.setup?.cert === true;
   const fTunnel = fixedInfo.setup?.tunnel === true;
   const fDns = fixedInfo.setup?.dns === true;
   const fAccess = fixedInfo.accessEnabled === true;
+  const fAccessVerified = fixedInfo.accessCheck?.state === 'verified';
+  const fAccessCheckDetail = fixedInfo.accessCheck?.detail ?? '';
   const fPinAlways = fixedInfo.pinAlways === true;
   const fixedRunning = tunnelMode === 'fixed' && Boolean(tunnelUrl);
   const quickRunning = tunnelMode !== 'fixed' && Boolean(tunnelUrl);
-  const fixedPinRequired = !fAccess || fPinAlways; // 固定域名是否要求内置 PIN
+  const fixedPinRequired = !fAccess || !fAccessVerified || fPinAlways; // 未验证时必须保留 PIN
   // 折叠摘要：状态标签（未配置/待初始化/已就绪/运行中）+ 对应颜色
   const fixedStatus = !fHostname ? 'unconfigured' : (fixedRunning ? 'running' : (fTunnel && fDns ? 'ready' : 'pending'));
   const fixedStatusLabel = fixedStatus === 'unconfigured' ? t('fixedStatusUnconfigured')
@@ -395,8 +421,11 @@ function PocketSettingsTab({ rpcCall, t }) {
       h('div', { style: { fontSize: 12, color: 'var(--dsw-alias-label-tertiary,#8b93a1)', textAlign: 'right' } },
         h('div', { style: { whiteSpace: 'nowrap' } }, t('developer')),
         h('div', { style: { whiteSpace: 'nowrap' } }, t('starAsk')),
-        h('a', { href: 'https://github.com/shaobeichen/dsh-pocket', target: '_blank', rel: 'noreferrer', style: { color: 'var(--dsw-alias-brand-primary,#4f6ef7)', fontSize: 12, lineHeight: 1.6, textDecoration: 'underline' } },
-          t('starCta')),
+        h('span', { style: { display: 'inline-flex', gap: 6, alignItems: 'center' } },
+          h('a', { href: 'https://github.com/shaobeichen/dsh-pocket', target: '_blank', rel: 'noreferrer', style: { color: 'var(--dsw-alias-brand-primary,#4f6ef7)', fontSize: 12, lineHeight: 1.6, textDecoration: 'underline' } }, t('starOriginal')),
+          h('span', null, '·'),
+          h('a', { href: 'https://github.com/hanjiangfly/dsh-pocket', target: '_blank', rel: 'noreferrer', style: { color: 'var(--dsw-alias-brand-primary,#4f6ef7)', fontSize: 12, lineHeight: 1.6, textDecoration: 'underline' } }, t('starFork')),
+        ),
       ),
     ),
 
@@ -478,11 +507,11 @@ function PocketSettingsTab({ rpcCall, t }) {
             h('span', { style: { fontSize: 12, color: 'var(--dsw-alias-label-secondary,#6b7280)' } }, t('lanPin')),
             h('button', {
               style: { ...styles.btn, height: 28, padding: '0 12px', fontSize: 12, fontWeight: status?.lanAuthEnabled !== false ? 600 : 400, background: status?.lanAuthEnabled !== false ? 'var(--dsw-alias-button-primary-fill, var(--dsw-alias-brand-primary,#4f6ef7))' : 'var(--dsw-alias-bg-layer-1,#fff)', color: status?.lanAuthEnabled !== false ? 'var(--dsw-alias-label-primary-foreground, #fff)' : 'var(--dsw-alias-label-primary,inherit)' },
-              onClick: () => setLanAuth(true),
+              onClick: () => requestLanAuth(true),
             }, t('on')),
             h('button', {
               style: { ...styles.btn, height: 28, padding: '0 12px', fontSize: 12, fontWeight: status?.lanAuthEnabled === false ? 600 : 400, background: status?.lanAuthEnabled === false ? 'var(--dsw-alias-state-error-primary,#dc2626)' : 'var(--dsw-alias-bg-layer-1,#fff)', color: status?.lanAuthEnabled === false ? '#fff' : 'var(--dsw-alias-label-primary,inherit)' },
-              onClick: () => setLanAuth(false),
+              onClick: () => requestLanAuth(false),
             }, t('off')),
           ),
           status?.lanAuthEnabled !== false
@@ -494,9 +523,38 @@ function PocketSettingsTab({ rpcCall, t }) {
                   customBtn('lan'),
                 ))
             : h('div', { style: { marginTop: 6, fontSize: 12, color: 'var(--dsw-alias-state-warn-primary,#b45309)', lineHeight: 1.5 } },
-              t('lanPinOff')),
+              activeVirtualNetwork ? t('virtualPinOff') : t('lanPinOff')),
           )
           : h('div', { style: styles.muted }, t('lanStarting'))),
+    ),
+
+    // 虚拟局域网：把已连接的 Tailscale / ZeroTier 网卡变成一键可用的专属二维码。
+    h('div', { style: styles.block },
+      h('div', { style: { fontWeight: 600, fontSize: 13 } }, t('virtualTitle')),
+      h('div', { style: { ...styles.muted, marginTop: 4 } }, t('virtualHint')),
+      h('button', { style: { ...styles.btn, height: 28, padding: '0 12px', fontSize: 12, marginTop: 8 }, onClick: refreshVirtualNetworks }, t('virtualRefresh')),
+      virtualNetworks.length === 0
+        ? h('div', { style: { ...styles.warn, marginTop: 8 } }, t('virtualNone'))
+        : virtualNetworks.map((network) => {
+          const selected = activeVirtualNetwork?.ip === network.ip;
+          return h('div', { key: `${network.kind}-${network.ip}`, style: { marginTop: 10, paddingTop: 10, borderTop: '1px dashed var(--dsw-alias-border-l2,#e5e7eb)' } },
+            h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+              h('span', { style: { fontSize: 12, fontWeight: 600 } }, `● ${network.label}`),
+              h('span', { style: { ...styles.code, margin: 0, color: 'var(--dsw-alias-label-secondary,#6b7280)' } }, network.ip),
+              h('button', {
+                style: { ...styles.btn, marginLeft: 'auto', height: 28, padding: '0 12px', fontSize: 12, ...(selected ? { borderColor: 'var(--dsw-alias-state-success-primary,#15803d)', color: 'var(--dsw-alias-state-success-primary,#15803d)' } : {}) },
+                onClick: () => useVirtualNetwork(network.ip),
+              }, selected ? t('virtualSelected') : t('virtualUse')),
+            ),
+            selected && network.url ? h('div', null,
+              h('img', { src: network.qr, alt: `${network.label} QR`, style: styles.qr }),
+              h('div', { style: styles.code }, network.url),
+              h('div', { style: styles.muted }, t('virtualPhoneHint')),
+              h('div', { style: { ...styles.warn, marginTop: 6 } }, t('virtualSafetyTitle')),
+              h('div', { style: styles.muted }, t('virtualSafetyBody')),
+            ) : null,
+          );
+        }),
     ),
 
     // 公网
@@ -602,6 +660,13 @@ function PocketSettingsTab({ rpcCall, t }) {
                 : null,
             ),
             // ③ 开启/运行
+            h('div', { style: { marginTop: 8, padding: '7px 9px', borderRadius: 8, fontSize: 11, lineHeight: 1.5, background: fixedRunning ? 'rgba(22,163,74,.08)' : (fixedStarting ? 'rgba(217,119,6,.10)' : 'rgba(220,38,38,.08)'), color: fixedRunning ? 'var(--dsw-alias-state-success-primary,#15803d)' : (fixedStarting ? 'var(--dsw-alias-state-warn-primary,#b45309)' : 'var(--dsw-alias-state-error-primary,#dc2626)') } },
+              fixedRunning
+                ? fmt(t, 'fixedRuntimeLive', { port: status?.proxyPort ?? '—' })
+                : fixedStarting
+                  ? (tunnelPhase === 'downloading' ? fmt(t, 'fixedRuntimeDownloading', { s: elapsed(tunnelStateStarted) }) : fmt(t, 'fixedRuntimeStarting', { detail: tunnelStateDetail || fmt(t, 'connecting', { s: elapsed(tunnelStateStarted), suffix: '' }) }))
+                  : (tunnelPhase === 'error' ? fmt(t, 'fixedRuntimeError', { detail: tunnelStateDetail || t('unknownError') }) : t('fixedRuntimeStopped')),
+            ),
             fixedRunning
               ? h('div', { style: { marginTop: 8 } },
                 h('div', { style: { fontSize: 12, fontWeight: 600, color: 'var(--dsw-alias-state-success-primary,#15803d)' } }, t('fixedRunning')),
@@ -646,8 +711,13 @@ function PocketSettingsTab({ rpcCall, t }) {
               // 配置引导：内嵌 CF Dashboard 步骤（比外链教程更少跳转）
               h('button', { style: { ...styles.btn, height: 28, padding: '0 10px', fontSize: 11, marginLeft: 'auto' }, onClick: () => setFixedGuideOpen(true) }, t('fixedGuideBtn')),
             ),
-            h('div', { style: { marginTop: 4, fontSize: 11, lineHeight: 1.5, color: fAccess ? 'var(--dsw-alias-label-tertiary,#8b93a1)' : 'var(--dsw-alias-state-warn-primary,#b45309)' } },
-              fAccess ? t('fixedAccessHintOn') : t('fixedAccessHintOff')),
+          h('div', { style: { marginTop: 4, fontSize: 11, lineHeight: 1.5, color: fAccess ? 'var(--dsw-alias-label-tertiary,#8b93a1)' : 'var(--dsw-alias-state-warn-primary,#b45309)' } },
+              fAccess ? (fAccessVerified ? t('fixedAccessHintOn') : `🔒 ${fAccessCheckDetail || t('fixedAccessUnverified')}`) : t('fixedAccessHintOff')),
+            fAccess ? h('button', {
+              style: { ...styles.btn, height: 26, padding: '0 10px', fontSize: 11, marginTop: 6 },
+              disabled: fixedBusy || !fixedRunning,
+              onClick: async () => { setFixedBusy(true); try { setStatus(await call(POCKET_ENDPOINTS.fixedVerifyAccess, {})); } catch (err) { setError(err.message); } finally { setFixedBusy(false); } },
+            }, '重新验证 Access') : null,
             // PIN 策略：Access 关 → 强制 PIN（安全提示，主界面直接显示，不藏）
             fAccess
               ? null
@@ -693,6 +763,18 @@ function PocketSettingsTab({ rpcCall, t }) {
         h('div', { style: { display: 'flex', gap: 8, marginTop: 16 } },
           h('button', { style: { ...styles.btn, flex: 1 }, onClick: () => setLanToggleOpen(null) }, t('cancel')),
           h('button', { style: { ...styles.primary, flex: 1 }, onClick: confirmLanToggle }, t('confirm')),
+        ),
+      ),
+    ) : null,
+
+    // 虚拟局域网允许关 PIN，但需单独确认，避免用户误以为它与普通家庭 LAN 等价。
+    virtualPinOffOpen ? h('div', { style: { position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 } },
+      h('div', { style: { background: 'var(--dsw-alias-bg-layer-1,#fff)', borderRadius: 12, maxWidth: 420, width: '100%', padding: '20px 22px', boxShadow: '0 8px 32px rgba(0,0,0,.18)' } },
+        h('div', { style: { fontWeight: 600, fontSize: 15, color: 'var(--dsw-alias-state-warn-primary,#b45309)', marginBottom: 10 } }, t('virtualPinOffTitle')),
+        h('div', { style: { fontSize: 13, lineHeight: 1.7, color: 'var(--dsw-alias-label-primary,inherit)' } }, t('virtualPinOffBody')),
+        h('div', { style: { display: 'flex', gap: 8, marginTop: 16 } },
+          h('button', { style: { ...styles.btn, flex: 1 }, onClick: () => setVirtualPinOffOpen(false) }, t('cancel')),
+          h('button', { style: { ...styles.primary, flex: 1, background: 'var(--dsw-alias-state-error-primary,#dc2626)' }, onClick: () => { setVirtualPinOffOpen(false); void setLanAuth(false); } }, t('virtualPinOffConfirm')),
         ),
       ),
     ) : null,
@@ -756,7 +838,7 @@ function PocketSettingsTab({ rpcCall, t }) {
 
     // 页面最底部：反馈入口
     h('div', { style: { ...styles.block, textAlign: 'center' } },
-      h('a', { href: 'https://github.com/shaobeichen/dsh-pocket/issues', target: '_blank', rel: 'noreferrer', style: { fontSize: 12, color: 'var(--dsw-alias-label-secondary,#6b7280)', textDecoration: 'none' } },
+      h('a', { href: 'https://github.com/hanjiangfly/dsh-pocket/issues', target: '_blank', rel: 'noreferrer', style: { fontSize: 12, color: 'var(--dsw-alias-label-secondary,#6b7280)', textDecoration: 'none' } },
         t('feedback')),
     ),
   );

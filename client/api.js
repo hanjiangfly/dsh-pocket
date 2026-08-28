@@ -12,9 +12,12 @@ export const POCKET_ENDPOINTS = Object.freeze({
   lanAuthSetEnabled: 'lanAuth.setEnabled',
   lanSetOverride: 'lan.setOverride',
   lanSetEnabled: 'lan.setEnabled',
+  virtualUse: 'virtual.use',
+  virtualRefresh: 'virtual.refresh',
   pinSetCustom: 'pin.setCustom',
   fixedSetHostname: 'fixed.setHostname',
   fixedSetAccess: 'fixed.setAccess',
+  fixedVerifyAccess: 'fixed.verifyAccess',
   fixedSetPinAlways: 'fixed.setPinAlways',
   fixedLogin: 'fixed.login',
   fixedSetup: 'fixed.setup',
@@ -63,6 +66,7 @@ export function redactStatus(s) {
     lanQr: s?.lanQr ?? null,
     lanCandidates: Array.isArray(s?.lanCandidates) ? s.lanCandidates : [],
     lanIpOverride: s?.lanIpOverride ?? '',
+    virtualNetworks: Array.isArray(s?.virtualNetworks) ? s.virtualNetworks : [],
     tunnelRunning: s?.tunnelRunning === true,
     tunnelMode: s?.tunnelMode ?? null,
     tunnelUrl: s?.tunnelUrl ?? null,
@@ -70,7 +74,7 @@ export function redactStatus(s) {
     tunnelState: s?.tunnelState ?? { phase: 'idle' },
     dshPort: s?.dshPort ?? null,
     // 固定域名（命名隧道）状态与登录进程
-    fixed: s?.fixed ?? { hostname: '', accessEnabled: false, pinAlways: false, setup: { cert: false, tunnel: false, dns: false } },
+    fixed: s?.fixed ?? { hostname: '', accessEnabled: false, pinAlways: false, accessCheck: { state: 'not-requested', detail: '' }, setup: { cert: false, tunnel: false, dns: false } },
     fixedLogin: s?.fixedLogin ?? null,
   };
 }

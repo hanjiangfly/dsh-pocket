@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="docs/banner.jpg" alt="DSH Pocket" width="100%">
+  <img src="docs/banner.jpg" alt="DSH Pocket Public Edition" width="100%">
 </p>
 
-<h1 align="center">DSH Pocket</h1>
+<h1 align="center">DSH Pocket Public Edition</h1>
 
 <p align="center"><a href="README.en.md">English</a> | <a href="README.md">中文</a></p>
 
@@ -18,7 +18,9 @@
 > Put **DeepSeek Harness in your pocket**: one package, one settings tab — scan a QR code and your phone shows exactly what's on your computer screen, live, from anywhere.
 
 <p align="center">
-  ⭐ A Star would make the author's day &nbsp;·&nbsp; <a href="https://github.com/shaobeichen/dsh-pocket">Here, take one</a>
+  ⭐ A Star would make the author's day &nbsp;·&nbsp;
+  <a href="https://github.com/shaobeichen/dsh-pocket">Original author</a> &nbsp;·&nbsp;
+  <a href="https://github.com/hanjiangfly/dsh-pocket">My version</a>
 </p>
 
 ## What is this
@@ -42,8 +44,10 @@ What it looks like — the phone shows the exact same UI as your computer, live:
 | Feature | Description |
 |---|---|
 | 📶 LAN QR access | Works out of the box: Settings → Phone access — scan the LAN QR on the same Wi-Fi (auto-detects the LAN IP; **under WSL it picks the Windows host's physical NIC IP**) |
+| 🌐 Virtual LAN (personal remote access) | Auto-detects connected **Tailscale / ZeroTier** virtual IPs. Choose one to get a dedicated QR code for secure remote access without a public domain or Cloudflare. |
 | 🚪 LAN switch | **Turn LAN access off/on with one click** in Settings (a confirmation dialog shows each time): off kills the LAN QR code and link instantly; public access is unaffected |
 | 🌐 Public QR (from anywhere) | Click "Enable anywhere" → cloudflared tunnel → scan the public QR over 4G / any network |
+| 🖥️ VPS relay (planned) | Your own VPS with built-in password / TOTP authentication; not implemented yet — request it in Issues if you need it. |
 | 🔐 Access PIN | Public links require an **8-digit PIN** (rotated on every tunnel start by default; **customizable to a fixed PIN** — custom PINs are not rotated); LAN has its own separate **8-digit PIN** (on by default; switchable off in Settings — then LAN scans connect directly) |
 | 🔑 Custom PINs | Both the public and LAN PINs can be **set to your own fixed 8-digit number** in Settings (custom PINs are never auto-rotated) |
 | 🧘 Session persistence | Enter the PIN once and you're set for a long time (login is tied to the computer's dsh web process: as long as it stays up, the phone won't ask again; **after a dsh web restart/update, enter it once more**) |

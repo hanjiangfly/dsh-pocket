@@ -10,7 +10,7 @@ import { join } from 'node:path';
 import { createPocketService } from '../lib/service.mjs';
 import { installPocketRpc } from '../lib/web-rpc.js';
 import { POCKET_RPC_CHANNEL, POCKET_ENDPOINTS, redactStatus } from '../client/api.js';
-import { namedTunnelConfigYaml } from '../lib/tunnel.mjs';
+import { namedTunnelConfigYaml, namedTunnelRunArgs } from '../lib/tunnel.mjs';
 import { normalizeHostname } from '../lib/settings.mjs';
 
 /** 每个测试独立 DSH_HOME（settings.mjs / index.js 每次调用都读环境变量）。 */
@@ -77,6 +77,13 @@ test('normalizeHostname：合法域名通过，协议/端口/路径/大写/IP �
   assert.equal(normalizeHostname('not a domain'), null, '含空格拒绝');
   assert.equal(normalizeHostname(''), null, '空串拒绝');
   assert.equal(normalizeHostname('localhost'), null, '单段拒绝');
+});
+
+test('命名隧道启动：全局选项必须在 tunnel run 前，避免 CLI 把它们误当成第二个隧道参数', () => {
+  assert.deepEqual(
+    namedTunnelRunArgs({ id: 'tid-1234', configPath: 'C:/tmp/named.yml' }),
+    ['--config', 'C:/tmp/named.yml', '--protocol', 'http2', '--no-autoupdate', 'tunnel', 'run', 'tid-1234'],
+  );
 });
 
 test('settings：setFixedHostname 校验并持久化；setFixedTunnelId / setFixedRouted / Access 开关', () => withHome(async () => {
@@ -158,6 +165,29 @@ test('service：fixed 模式启动命名隧道；tunnelMode/URL/二维码/状态
   const after = await service.status();
   assert.equal(after.tunnelRunning, false);
   assert.equal(after.tunnelMode, null);
+  await service.dispose();
+});
+
+test('service：Access 验证失败时不放行本地 PIN；验证成功后才置为 verified', async () => {
+  const internals = stubInternals();
+  let accessVerified = null;
+  let probeOk = false;
+  internals.probeCloudflareAccess = async () => probeOk;
+  const service = createPocketService({
+    dshPort: 3080, port: 3081, internals,
+    getFixedHostname: () => 'dsh.example.com', getFixedTunnelId: () => 'tid-1', getFixedRouted: () => true,
+    getFixedAccessEnabled: () => true, getFixedPinAlways: () => false,
+    setFixedAccessVerified: (v) => { accessVerified = v; },
+  });
+  await service.startProxy();
+  await service.startTunnel({ mode: 'fixed' });
+  await new Promise((r) => setTimeout(r, 0));
+  assert.equal((await service.status()).fixed.accessCheck.state, 'failed');
+  assert.equal(accessVerified, false, '验证失败必须保持 PIN 栅栏');
+  probeOk = true;
+  await service.verifyFixedAccess();
+  assert.equal((await service.status()).fixed.accessCheck.state, 'verified');
+  assert.equal(accessVerified, true, '仅确认 Access 登录墙后才放行');
   await service.dispose();
 });
 

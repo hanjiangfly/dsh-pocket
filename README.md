@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="docs/banner.jpg" alt="DSH Pocket" width="100%">
+  <img src="docs/banner.jpg" alt="DSH Pocket 公网版" width="100%">
 </p>
 
-<h1 align="center">DSH Pocket</h1>
+<h1 align="center">DSH Pocket 公网版</h1>
 
 <p align="center"><a href="README.en.md">English</a> | <a href="README.md">中文</a></p>
 
@@ -18,7 +18,9 @@
 > 把 **DeepSeek Harness 装进你的口袋**：一个包、一个设置页，手机扫二维码就实时看到电脑上的同一个界面——人在外面也能用。
 
 <p align="center">
-  ⭐ 顺手留颗 Star，作者能高兴一整天 &nbsp;·&nbsp; <a href="https://github.com/shaobeichen/dsh-pocket">行，给你一颗 Star</a>
+  ⭐ 顺手留颗 Star，作者能高兴一整天 &nbsp;·&nbsp;
+  <a href="https://github.com/shaobeichen/dsh-pocket">原作者</a> &nbsp;·&nbsp;
+  <a href="https://github.com/hanjiangfly/dsh-pocket">我的版本</a>
 </p>
 
 ## 这是什么
@@ -31,6 +33,18 @@
 
 DSH Pocket 就是干这个的：**装上它，手机扫个码，就能实时看到并操控电脑上的 DeepSeek Harness 界面**——人在外面也能用。
 
+### 访问方式一览
+
+| 方式 | 当前状态 | 适合场景 | 手机是否需要客户端 |
+|---|---|---|---|
+| 📶 同 Wi‑Fi 局域网 | 已支持 | 手机和电脑在同一个 Wi‑Fi | 不需要 |
+| 🌐 虚拟局域网：Tailscale / ZeroTier | 已支持 | 自己异地访问，不想暴露公网 | 需要安装并连接 Tailscale / ZeroTier |
+| ☁️ Cloudflare 公网：随机域名 + PIN | 已支持 | 临时从任何网络用浏览器访问 | 不需要 |
+| 🔗 Cloudflare 公网：固定域名 | 已支持 | 长期使用固定地址；建议配合 Access + MFA | 不需要 |
+| 🖥️ 云端中继：自有 VPS + 内置密码 / TOTP | **待开发** | 不想使用 Cloudflare Access、愿意自备 VPS | 预计不需要 |
+
+> **云端中继版待续**：计划让电脑主动加密连接你自己的 VPS，由 VPS 提供固定 HTTPS 地址，再以 DSH Pocket 内置的长密码 / TOTP 认证保护访问。还没有开发；如果你有这类需求，欢迎在 [Issues](https://github.com/hanjiangfly/dsh-pocket/issues) 留言说明你的 VPS 系统、域名和认证需求。
+
 实际效果——手机上的界面就是电脑上的界面，实时同步：
 
 <p align="center">
@@ -42,9 +56,11 @@ DSH Pocket 就是干这个的：**装上它，手机扫个码，就能实时看�
 | 特性 | 说明 |
 |---|---|
 | 📶 局域网扫码 | 装好即用：设置 → 手机访问，打开就有局域网二维码，手机连同一 WiFi 扫码即开（自动识别本机局域网 IP，**WSL 环境自动取 Windows 物理网卡 IP**） |
+| 🌐 虚拟局域网（异地自用） | 自动识别已连接的 **Tailscale / ZeroTier** 虚拟网卡 IP；点「一键选用」即生成专属二维码，可在 4G、公司网等任何网络访问，**无需公网域名或 Cloudflare** |
 | 🚪 局域网开关 | 设置页可**一键关闭/开启局域网访问**（切换时弹窗提醒）：关闭后局域网二维码/链接立即失效，仅公网可用 |
 | 🌐 公网扫码（人在外面） | 点「开启公网访问」→ cloudflared 隧道 → 出公网二维码，4G/任何网络都能访问 |
 | 🌐 固定域名（可选） | 绑定自己的 **Cloudflare 托管域名**，公网地址**固定不变**（命名隧道）；**推荐配合 Cloudflare Access + MFA**（边缘认证：邮箱验证码/硬件密钥等）；未启用 Access 时强制 8 位 PIN |
+| 🖥️ 云端中继（规划中） | 使用自己的 VPS 提供固定公网入口、DSH Pocket 内置密码 / TOTP；**尚未开发**，有需求请到 Issues 留言 |
 | 🔐 访问密码 | 公网链接需输入 **8 位数字密码**（默认每次开启公网自动换新；**可自定义固定密码**——自定义后不再换新）；局域网有独立 **8 位数字密码**（默认开启，设置页可**一键关闭**——关闭后局域网扫码直连） |
 | 🔑 自定义密码 | 公网/局域网密码都可在设置页**设成自己固定的 8 位数字**（自定义后公网不再自动换新） |
 | 🧘 会话保持 | 手机输一次密码后**长期免输**（登录状态绑定电脑上的 dsh web 进程：只要它不重启，手机不用再输；**dsh web 重启/更新后需重新输入一次**） |
@@ -88,16 +104,18 @@ npx @deepseek-ai/dsh web
 >
 > 手机登录一次后**长期免输**：只要电脑上的 dsh web 不重启，再次打开手机不用再输入（**dsh web 重启/更新后需重新输入一次**）。
 >
-> 高级选项：自动识别在 Tailscale/VPN 等场景下可能选不到可达地址。可在「局域网地址」下拉框手动选择已检测到的 IP；一般不需要修改。
+> 高级选项：普通家庭局域网一般无需改「局域网地址」。异地使用 Tailscale / ZeroTier 时，请使用下方的「虚拟局域网」专属入口。
 
-### 局域网（异地 · ZeroTier/Tailscale 备选方案）
+### 虚拟局域网（异地自用 · Tailscale / ZeroTier）
 
-不想开公网隧道、又想在 4G/公司网访问？**ZeroTier / Tailscale 把手机"放进"电脑所在的局域网**，走的就是上面的局域网模式——不用公网隧道、不用 CF 账号，只要在插件设置页把局域网地址选成虚拟网卡 IP 即可。
+不想开公网隧道、又想在 4G/公司网访问？**ZeroTier / Tailscale 把手机“放进”电脑所在的局域网**，不用公网隧道、不用 CF 账号。它不是公开网站：只有已安装客户端、登录并加入同一虚拟网络的手机，才能打开该地址。
+
+**插件做什么 / 不做什么**：插件自动发现电脑上已连接的 Tailscale、ZeroTier 虚拟网卡，显示 IP、提供「一键选用」和专属二维码；它**不会**替你安装客户端、登录账号或加入网络，这些仍由 Tailscale / ZeroTier 官方客户端负责。
 
 **条件准备**（ZeroTier 为例，Tailscale 同理）：
 
 ```text
-① 注册 ZeroTier Central（my.zerotier.com，免费 25 台设备）→ Create Network 得 network ID
+① 注册 ZeroTier Central → Create Network 得 network ID
 ② 电脑装 ZeroTier 客户端 → zerotier-cli join <network-id>
 ③ 手机 App Store / Play 装 ZeroTier → 加入同一 network ID
 ④ Central 网络页把两台设备都勾选 Auth（不勾 = 进不来）
@@ -106,10 +124,12 @@ npx @deepseek-ai/dsh web
 **dsh-pocket 里怎么用**：
 
 ```text
-手机 ZeroTier 连上后（拿到虚拟 IP）→ 插件设置页 → 手机访问 → 局域网区块
-→ 「局域网地址」下拉框**手动选择电脑的 ZeroTier IP**（自动识别会故意避开 VPN 网卡）
-→ 手机访问 http://<电脑虚拟IP>:3081 → 输局域网 PIN → 进入 DSH
+手机 ZeroTier 连上后（拿到虚拟 IP）→ 插件设置页 → 手机访问 → 虚拟局域网
+→ 插件会自动识别已连接的 Tailscale / ZeroTier 地址，点「一键选用」
+→ 扫该区块专属二维码 / 访问 http://<电脑虚拟IP>:3081 → 输局域网 PIN → 进入 DSH
 ```
+
+「一键选用」会默认重新开启局域网访问和 PIN；你仍可在设置中关闭 PIN，但会再次确认并持续显示风险提示。电脑未检测到可用 IP 时，先确认 Tailscale / ZeroTier 已在电脑端登录并显示“已连接”，再点「重新检测」。
 
 **安全模型**：ZeroTier 是**设备级信任**（授权设备才能进网络，无用户登录/MFA 流程），叠加 dsh-pocket 的局域网 PIN 共两层；设备丢失可在 Central 立即踢除。
 

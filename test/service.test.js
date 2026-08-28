@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { createPocketService, selectLanIPv4 } from '../lib/service.mjs';
+import { createPocketService, selectLanIPv4, detectVirtualNetworks } from '../lib/service.mjs';
 import { installPocketRpc } from '../lib/web-rpc.js';
 import { POCKET_RPC_CHANNEL, POCKET_ENDPOINTS } from '../client/api.js';
 import { isValidIpv4 } from '../lib/ip.mjs';
@@ -26,6 +26,7 @@ function stubInternals() {
     started,
     lanIPv4: () => '192.168.1.50',
     lanCandidates: async () => ['192.168.1.50', '100.119.24.44'],
+    virtualNetworks: async () => [{ kind: 'tailscale', label: 'Tailscale', ip: '100.119.24.44', interfaceName: 'Tailscale Tunnel' }],
     encodeQr: async (text) => `data:qr;${text}`,
     createProxy: async ({ port }) => ({
       port,
@@ -101,6 +102,18 @@ test('selectLanIPv4：空接口表返回 null', () => {
   assert.equal(selectLanIPv4({}), null);
 });
 
+test('detectVirtualNetworks：只识别已连接的 Tailscale 与 ZeroTier IPv4', () => {
+  assert.deepEqual(detectVirtualNetworks(ifaces([
+    ['Tailscale Tunnel', '100.119.24.44'],
+    ['ZeroTier One [abcd]', '10.147.17.8'],
+    ['Radmin VPN', '26.1.2.3'],
+    ['WLAN', '192.168.1.50'],
+  ])), [
+    { kind: 'tailscale', label: 'Tailscale', ip: '100.119.24.44', interfaceName: 'Tailscale Tunnel' },
+    { kind: 'zerotier', label: 'ZeroTier', ip: '10.147.17.8', interfaceName: 'ZeroTier One [abcd]' },
+  ]);
+});
+
 test('service：lanIpOverride 优先于自动选择，status 返回候选地址', async () => {
   const internals = stubInternals();
   let override = '';
@@ -111,6 +124,7 @@ test('service：lanIpOverride 优先于自动选择，status 返回候选地址'
   assert.equal(st.lanUrl, 'http://192.168.1.50:3081', '默认自动选择');
   assert.deepEqual(st.lanCandidates, ['192.168.1.50', '100.119.24.44'], '候选包含 Tailscale IP');
   assert.equal(st.lanIpOverride, '', '未设置覆盖');
+  assert.equal(st.virtualNetworks[0].url, 'http://100.119.24.44:3081', '虚拟局域网有专属链接');
 
   override = '100.119.24.44';
   st = await service.status();
@@ -223,6 +237,35 @@ test('RPC：lan.setOverride 设置/清除覆盖地址，非法 IP 被拒绝', as
   assert.equal(clear.value.lanIpOverride, '', '清除覆盖');
   const restored = await conn.handler(POCKET_ENDPOINTS.status, {});
   assert.equal(restored.value.lanUrl, 'http://192.168.1.50:3081', '恢复自动选择');
+
+  await service.dispose();
+});
+
+test('RPC：virtual.use 一键选用虚拟 IP，同时恢复 LAN 与 PIN 的安全默认值', async () => {
+  const internals = stubInternals();
+  let stored = '';
+  let lanEnabled = false;
+  let pinEnabled = false;
+  const service = createPocketService({ dshPort: 3080, port: 3081, internals, getLanIpOverride: () => stored });
+  const conn = fakeCtxConnection();
+  installPocketRpc({ connection: conn }, {
+    service,
+    getLanIpOverride: () => stored,
+    setLanIpOverride: (ip) => { stored = ip; return ip; },
+    getLanEnabled: () => lanEnabled,
+    setLanEnabled: (on) => { lanEnabled = on; return on; },
+    getLanAuthEnabled: () => pinEnabled,
+    setLanAuthEnabled: (on) => { pinEnabled = on; return on; },
+    log: { error() {}, warn() {} },
+  });
+  await service.startProxy();
+
+  const used = await conn.handler(POCKET_ENDPOINTS.virtualUse, { ip: '100.119.24.44' });
+  assert.equal(used.ok, true);
+  assert.equal(stored, '100.119.24.44');
+  assert.equal(lanEnabled, true, '一键选用会恢复 LAN 访问');
+  assert.equal(pinEnabled, true, '一键选用默认开启 PIN');
+  assert.equal(used.value.virtualNetworks[0].url, 'http://100.119.24.44:3081');
 
   await service.dispose();
 });
