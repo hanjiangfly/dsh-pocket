@@ -87,8 +87,9 @@ npm install -g @deepseek-ai/dsh     # 全局安装；验证：dsh --version
 ```
 
 ```sh
-# 1. 装插件（一个包全都有）
-dsh plugin --profile web add dsh-pocket -w
+# 1. 安装 DSH Pocket 公网版（从 GitHub 固定发行标签安装）
+# 将 v1.14.6-public.1 替换成 Releases 页面显示的最新稳定标签
+dsh plugin --profile web add -w github:hanjiangfly/dsh-pocket#v1.14.6-public.1
 
 # 2. 重启 dsh web
 npx @deepseek-ai/dsh web
@@ -151,6 +152,8 @@ npx @deepseek-ai/dsh web
 > 更新到新版本：`dsh plugin --profile web update dsh-pocket --latest -w`（跨大版本时 `--latest` 是必须的，`^0.x` 范围不会自动升到 1.x）。
 
 ### 公网（固定域名，可选 · 推荐配合 Cloudflare Access + MFA）
+
+> *提示：创建 Cloudflare Zero Trust 组织时，即使选择 **Free** 计划，Cloudflare 目前仍要求选择订阅并填写有效付款资料；官方说明 Free 计划不会收费。可用方式通常包括 Visa / Mastercard / 银联卡、PayPal、Apple Pay、Google Pay 等，但实际是否能添加取决于所在地区、发卡行和账户状态。若无法完成此步骤，可使用「虚拟局域网（Tailscale / ZeroTier）」；自有 VPS 云端中继方案仍在规划中。*
 
 快速隧道的 URL 每次重启会变，适合临时用。想要**固定不变**的公网地址（比如收藏到手机桌面、配到其他工具里），可以用固定域名模式——前提是你有一个**托管在 Cloudflare 的域名**（DNS 由 Cloudflare 接管）。
 
