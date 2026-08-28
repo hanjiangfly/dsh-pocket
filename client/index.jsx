@@ -467,14 +467,18 @@ function PocketSettingsTab({ rpcCall, t }) {
   };
   const copyText = async (value) => {
     try {
-      if (navigator.clipboard?.writeText && globalThis.isSecureContext) {
-        await navigator.clipboard.writeText(value);
-      } else {
+      let copied = false;
+      // Electron/DSH Desktop 有时 isSecureContext=false，但 Clipboard API 实际可用；
+      // 先直接尝试，失败再回退到选区复制，别因环境标志误判而直接失败。
+      if (navigator.clipboard?.writeText) {
+        try { await navigator.clipboard.writeText(value); copied = true; } catch { /* fallback below */ }
+      }
+      if (!copied) {
         const area = document.createElement('textarea');
         area.value = value; area.setAttribute('readonly', '');
-        area.style.cssText = 'position:fixed;left:-9999px;top:0';
-        document.body.appendChild(area); area.select(); area.setSelectionRange(0, area.value.length);
-        const copied = document.execCommand('copy'); document.body.removeChild(area);
+        area.style.cssText = 'position:fixed;left:0;top:0;opacity:0;pointer-events:none';
+        document.body.appendChild(area); area.focus(); area.select(); area.setSelectionRange(0, area.value.length);
+        copied = document.execCommand('copy'); document.body.removeChild(area);
         if (!copied) throw new Error('copy unavailable');
       }
       setCopyNotice(t('guestCopied'));
@@ -1014,9 +1018,10 @@ function PocketSettingsTab({ rpcCall, t }) {
           h('div', { style: { fontSize: 12, fontWeight: 600 } }, item.label),
           item.available
             ? h('div', null,
-              h('div', { style: { ...styles.code, fontSize: 10, margin: '4px 0 7px' } }, item.url),
+              h('a', { href: item.url, target: '_blank', rel: 'noreferrer', style: { ...styles.code, display: 'block', fontSize: 10, margin: '4px 0 7px', color: 'var(--dsw-alias-brand-primary,#4f6ef7)', textDecoration: 'underline' } }, item.url),
               h('button', { style: { ...styles.primary, height: 28, padding: '0 12px' }, onClick: () => shareGuestLink(item) }, navigator.share ? t('guestSystemShare') : t('guestCopyLink')),
               h('button', { style: { ...styles.btn, height: 28, padding: '0 12px', marginLeft: 6 }, onClick: () => copyText(item.url) }, t('guestCopyLink')),
+              h('a', { href: item.url, target: '_blank', rel: 'noreferrer', style: { ...styles.btn, height: 28, padding: '0 12px', marginLeft: 6, textDecoration: 'none' } }, t('guestOpenLink')),
             )
             : h('div', { style: { ...styles.warn, marginTop: 5 } }, item.reason),
         )),

@@ -1472,6 +1472,7 @@ var zh2 = {
   "guestShareFixed": "\u56FA\u5B9A\u57DF\u540D\u516C\u7F51\u94FE\u63A5",
   "guestSystemShare": "\u7CFB\u7EDF\u5206\u4EAB",
   "guestCopyLink": "\u590D\u5236\u94FE\u63A5",
+  "guestOpenLink": "\u6253\u5F00\u94FE\u63A5",
   "guestShareUnavailable": "\u5F53\u524D\u6CA1\u6709\u7B26\u5408\u6388\u6743\u8303\u56F4\u7684\u53EF\u7528\u5730\u5740\uFF1B\u8BF7\u5148\u5F00\u542F\u5BF9\u5E94\u7684\u5C40\u57DF\u7F51\u6216\u516C\u7F51\u5165\u53E3\u3002",
   "guestScopeExcluded": "\u8BE5\u8BBF\u5BA2\u7684\u8BBF\u95EE\u8303\u56F4\u4E0D\u5305\u542B\u6B64\u5165\u53E3\u3002",
   "guestLanDisabled": "\u5C40\u57DF\u7F51\u8BBF\u95EE\u5DF2\u5173\u95ED\uFF0C\u5F00\u542F\u540E\u624D\u80FD\u751F\u6210\u6B64\u94FE\u63A5\u3002",
@@ -1693,6 +1694,7 @@ var en2 = {
   "guestShareFixed": "Fixed-domain public link",
   "guestSystemShare": "Share",
   "guestCopyLink": "Copy link",
+  "guestOpenLink": "Open link",
   "guestShareUnavailable": "No matching address is available. Enable the corresponding LAN or public entrance first.",
   "guestScopeExcluded": "This entrance is outside the guest grant scope.",
   "guestLanDisabled": "LAN access is off. Enable it to create this link.",
@@ -2228,17 +2230,24 @@ function PocketSettingsTab({ rpcCall, t }) {
   };
   const copyText = async (value) => {
     try {
-      if (navigator.clipboard?.writeText && globalThis.isSecureContext) {
-        await navigator.clipboard.writeText(value);
-      } else {
+      let copied = false;
+      if (navigator.clipboard?.writeText) {
+        try {
+          await navigator.clipboard.writeText(value);
+          copied = true;
+        } catch {
+        }
+      }
+      if (!copied) {
         const area = document.createElement("textarea");
         area.value = value;
         area.setAttribute("readonly", "");
-        area.style.cssText = "position:fixed;left:-9999px;top:0";
+        area.style.cssText = "position:fixed;left:0;top:0;opacity:0;pointer-events:none";
         document.body.appendChild(area);
+        area.focus();
         area.select();
         area.setSelectionRange(0, area.value.length);
-        const copied = document.execCommand("copy");
+        copied = document.execCommand("copy");
         document.body.removeChild(area);
         if (!copied) throw new Error("copy unavailable");
       }
@@ -2865,9 +2874,10 @@ function PocketSettingsTab({ rpcCall, t }) {
           item.available ? (0, import_react2.createElement)(
             "div",
             null,
-            (0, import_react2.createElement)("div", { style: { ...styles.code, fontSize: 10, margin: "4px 0 7px" } }, item.url),
+            (0, import_react2.createElement)("a", { href: item.url, target: "_blank", rel: "noreferrer", style: { ...styles.code, display: "block", fontSize: 10, margin: "4px 0 7px", color: "var(--dsw-alias-brand-primary,#4f6ef7)", textDecoration: "underline" } }, item.url),
             (0, import_react2.createElement)("button", { style: { ...styles.primary, height: 28, padding: "0 12px" }, onClick: () => shareGuestLink(item) }, navigator.share ? t("guestSystemShare") : t("guestCopyLink")),
-            (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 28, padding: "0 12px", marginLeft: 6 }, onClick: () => copyText(item.url) }, t("guestCopyLink"))
+            (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 28, padding: "0 12px", marginLeft: 6 }, onClick: () => copyText(item.url) }, t("guestCopyLink")),
+            (0, import_react2.createElement)("a", { href: item.url, target: "_blank", rel: "noreferrer", style: { ...styles.btn, height: 28, padding: "0 12px", marginLeft: 6, textDecoration: "none" } }, t("guestOpenLink"))
           ) : (0, import_react2.createElement)("div", { style: { ...styles.warn, marginTop: 5 } }, item.reason)
         )),
         copyNotice ? (0, import_react2.createElement)("div", { style: { marginTop: 8, fontSize: 12, color: copyNotice === t("guestCopied") ? "var(--dsw-alias-state-success-primary,#15803d)" : "var(--dsw-alias-state-error-primary,#dc2626)" } }, copyNotice) : null,
