@@ -1361,6 +1361,22 @@ var zh2 = {
   "section": "\u624B\u673A\u8BBF\u95EE",
   "title": "\u{1F4F1} \u624B\u673A\u8BBF\u95EE",
   "subtitle": "\u624B\u673A\u626B\u7801\u6253\u5F00\u7684\u5C31\u662F\u7535\u8111\u4E0A\u7684\u8FD9\u4E2A\u754C\u9762\uFF0C\u5B9E\u65F6\u540C\u6B65",
+  "remoteSummaryLocal": "\u4EC5\u672C\u5730\u8BBF\u95EE",
+  "remoteSummaryLocalDetail": "\u5C40\u57DF\u7F51 / \u865A\u62DF\u5C40\u57DF\u7F51\u53EF\u7528\uFF1B\u516C\u7F51\u672A\u5F00\u542F",
+  "remoteSummaryConnecting": "\u6B63\u5728\u5EFA\u7ACB\u516C\u7F51\u8BBF\u95EE",
+  "remoteSummaryConnectingDetail": "Cloudflare \u96A7\u9053\u6B63\u5728\u8FDE\u63A5\uFF0C\u8BF7\u7A0D\u5019",
+  "remoteSummaryOnline": "\u6B63\u5728\u516C\u7F51\u8BBF\u95EE",
+  "remoteSummaryOnlineDetail": "{mode} \xB7 {host} \xB7 {access} \xB7 {pin}",
+  "remoteSummaryProblem": "\u516C\u7F51\u8BBF\u95EE\u4E0D\u53EF\u7528",
+  "remoteSummaryProblemDetail": "{detail}",
+  "remoteSummaryStoppedFixed": "\u56FA\u5B9A\u57DF\u540D\u5DF2\u914D\u7F6E\uFF0C\u4F46\u672C\u5730\u96A7\u9053\u672A\u8FD0\u884C",
+  "remoteModeQuick": "\u5FEB\u901F\u96A7\u9053",
+  "remoteModeFixed": "\u56FA\u5B9A\u57DF\u540D",
+  "remoteAccessVerified": "Access \u5DF2\u9A8C\u8BC1",
+  "remoteAccessUnverified": "Access \u672A\u9A8C\u8BC1",
+  "remotePinForced": "PIN \u5F3A\u5236\u5F00\u542F",
+  "remotePinEnabled": "PIN \u5DF2\u5F00\u542F",
+  "remotePinDisabled": "PIN \u5DF2\u5173\u95ED",
   "developer": "\u5F00\u53D1\u8005\uFF1A\u7A0B\u5E8F\u5458\u5C11\u5317\u6668",
   "starAsk": "\u2B50 \u987A\u624B\u7559\u9897 Star\uFF0C\u4F5C\u8005\u80FD\u9AD8\u5174\u4E00\u6574\u5929",
   "starOriginal": "\u539F\u4F5C\u8005",
@@ -1553,6 +1569,22 @@ var en2 = {
   "section": "Phone access",
   "title": "\u{1F4F1} Phone access",
   "subtitle": "The phone shows this exact screen, live",
+  "remoteSummaryLocal": "Local access only",
+  "remoteSummaryLocalDetail": "LAN / virtual LAN is available; public access is off",
+  "remoteSummaryConnecting": "Establishing public access",
+  "remoteSummaryConnectingDetail": "Cloudflare Tunnel is connecting; please wait",
+  "remoteSummaryOnline": "Public access is live",
+  "remoteSummaryOnlineDetail": "{mode} \xB7 {host} \xB7 {access} \xB7 {pin}",
+  "remoteSummaryProblem": "Public access unavailable",
+  "remoteSummaryProblemDetail": "{detail}",
+  "remoteSummaryStoppedFixed": "Custom domain is configured, but the local tunnel is not running",
+  "remoteModeQuick": "Quick tunnel",
+  "remoteModeFixed": "Custom domain",
+  "remoteAccessVerified": "Access verified",
+  "remoteAccessUnverified": "Access unverified",
+  "remotePinForced": "PIN enforced",
+  "remotePinEnabled": "PIN enabled",
+  "remotePinDisabled": "PIN off",
   "developer": "Developer: \u5C11\u5317\u6668 (shaobeichen)",
   "starAsk": "\u2B50 Drop a Star if it helped \u2014 it makes the author\u2019s day",
   "starOriginal": "Original author",
@@ -1766,6 +1798,72 @@ var styles = {
   qr: { width: 220, height: 220, borderRadius: 10, border: "1px solid var(--dsw-alias-border-l2,#e5e7eb)", margin: "8px 0" },
   warn: { color: "var(--dsw-alias-state-warn-primary,#b45309)", fontSize: 12, lineHeight: 1.5 }
 };
+function publicAccessState(status) {
+  const phase = status?.tunnelState?.phase ?? "idle";
+  const fixed = status?.fixed ?? {};
+  const fixedConfigured = Boolean(fixed.hostname && fixed.setup?.tunnel && fixed.setup?.dns);
+  if (status?.tunnelRunning && phase === "ready") return { kind: "online" };
+  if (["downloading", "starting", "registering", "checking"].includes(phase)) return { kind: "connecting" };
+  if (phase === "error") return { kind: "problem", detail: status?.tunnelState?.detail };
+  if (fixedConfigured) return { kind: "problem", detail: "fixed-stopped" };
+  return { kind: "local" };
+}
+function publicStateColor(kind) {
+  return { local: "#8b93a1", connecting: "#b45309", online: "#15803d", problem: "#dc2626" }[kind] ?? "#8b93a1";
+}
+function publicStateLabel(t, kind) {
+  return kind === "online" ? t("remoteSummaryOnline") : kind === "connecting" ? t("remoteSummaryConnecting") : kind === "problem" ? t("remoteSummaryProblem") : t("remoteSummaryLocal");
+}
+function installPublicAccessIndicators(ctx, rpcCall, t) {
+  let latest = { kind: "local" };
+  const candidates = (labels) => Array.from(document.querySelectorAll('button,[role="button"]')).filter((node) => labels.includes((node.textContent ?? "").trim()));
+  const paint = (node, id, expanded) => {
+    if (!node || !node.isConnected) return;
+    let dot = node.querySelector(`:scope > [data-dsh-pocket-status="${id}"]`);
+    if (!dot) {
+      dot = document.createElement("span");
+      dot.dataset.dshPocketStatus = id;
+      dot.setAttribute("aria-hidden", "true");
+      dot.style.cssText = "display:inline-block;width:8px;height:8px;border-radius:50%;margin-left:7px;vertical-align:middle;flex:0 0 auto;";
+      node.appendChild(dot);
+    }
+    const label = publicStateLabel(t, latest.kind);
+    dot.style.background = publicStateColor(latest.kind);
+    dot.title = label;
+    if (expanded) {
+      let text = node.querySelector(`:scope > [data-dsh-pocket-status-text="${id}"]`);
+      if (!text) {
+        text = document.createElement("span");
+        text.dataset.dshPocketStatusText = id;
+        text.style.cssText = "font-size:11px;margin-left:5px;opacity:.82;white-space:nowrap;";
+        node.appendChild(text);
+      }
+      text.textContent = label;
+      text.style.color = publicStateColor(latest.kind);
+    }
+  };
+  const render = () => {
+    for (const node of candidates([t("section"), "Phone access"])) paint(node, "phone-nav", true);
+    for (const node of candidates(["\u8BBE\u7F6E", "Settings"])) paint(node, "global-settings", false);
+  };
+  const refresh = async () => {
+    try {
+      latest = publicAccessState(await rpcCall(POCKET_ENDPOINTS.status, {}));
+    } catch {
+    }
+    render();
+  };
+  ctx.effect(() => {
+    refresh();
+    const observer = new MutationObserver(render);
+    observer.observe(document.documentElement, { childList: true, subtree: true });
+    const timer = setInterval(refresh, 3e3);
+    return () => {
+      observer.disconnect();
+      clearInterval(timer);
+    };
+  }, "dsh-pocket: public access status indicators");
+}
 function PocketSettingsTab({ rpcCall, t }) {
   const [status, setStatus] = (0, import_react2.useState)(null);
   const [busy, setBusy] = (0, import_react2.useState)(false);
@@ -2180,6 +2278,22 @@ function PocketSettingsTab({ rpcCall, t }) {
   const fixedStatus = !fHostname ? "unconfigured" : fixedRunning ? "running" : fTunnel && fDns ? "ready" : "pending";
   const fixedStatusLabel = fixedStatus === "unconfigured" ? t("fixedStatusUnconfigured") : fixedStatus === "running" ? t("fixedStatusRunning") : fixedStatus === "ready" ? t("fixedStatusReady") : t("fixedStatusPending");
   const fixedStatusColor = fixedStatus === "unconfigured" ? "var(--dsw-alias-label-tertiary,#8b93a1)" : fixedStatus === "running" ? "var(--dsw-alias-state-success-primary,#15803d)" : fixedStatus === "ready" ? "var(--dsw-alias-brand-primary,#4f6ef7)" : "var(--dsw-alias-state-warn-primary,#b45309)";
+  const remoteState = publicAccessState(status);
+  let remoteHost = "\u2014";
+  if (tunnelMode === "fixed") remoteHost = fHostname;
+  else if (tunnelUrl) {
+    try {
+      remoteHost = new URL(tunnelUrl).host;
+    } catch {
+      remoteHost = tunnelUrl;
+    }
+  }
+  const remoteSummaryDetail = remoteState.kind === "online" ? fmt(t, "remoteSummaryOnlineDetail", {
+    mode: tunnelMode === "fixed" ? t("remoteModeFixed") : t("remoteModeQuick"),
+    host: remoteHost,
+    access: fAccess ? fAccessVerified ? t("remoteAccessVerified") : t("remoteAccessUnverified") : t("remoteAccessUnverified"),
+    pin: fixedPinRequired ? t("remotePinForced") : t("remotePinDisabled")
+  }) : remoteState.kind === "connecting" ? t("remoteSummaryConnectingDetail") : remoteState.kind === "problem" ? fmt(t, "remoteSummaryProblemDetail", { detail: remoteState.detail === "fixed-stopped" ? t("remoteSummaryStoppedFixed") : remoteState.detail || t("fixedRuntimeStopped") }) : t("remoteSummaryLocalDetail");
   return (0, import_react2.createElement)(
     "div",
     { style: styles.card },
@@ -2205,6 +2319,18 @@ function PocketSettingsTab({ rpcCall, t }) {
           (0, import_react2.createElement)("a", { href: "https://github.com/hanjiangfly/dsh-pocket", target: "_blank", rel: "noreferrer", style: { color: "var(--dsw-alias-brand-primary,#4f6ef7)", fontSize: 12, lineHeight: 1.6, textDecoration: "underline" } }, t("starFork"))
         )
       )
+    ),
+    // 保底层：官方 settings.section 插槽内的常驻状态摘要。
+    (0, import_react2.createElement)(
+      "div",
+      { style: { ...styles.block, borderLeft: `4px solid ${publicStateColor(remoteState.kind)}`, borderRadius: 8, background: "var(--dsw-alias-bg-layer-2,#f7f7f8)", padding: "10px 12px" } },
+      (0, import_react2.createElement)(
+        "div",
+        { style: { display: "flex", alignItems: "center", gap: 7, fontWeight: 600, fontSize: 13 } },
+        (0, import_react2.createElement)("span", { style: { width: 8, height: 8, borderRadius: "50%", background: publicStateColor(remoteState.kind), display: "inline-block", flex: "0 0 auto" } }),
+        publicStateLabel(t, remoteState.kind)
+      ),
+      (0, import_react2.createElement)("div", { style: { ...styles.muted, marginTop: 4, wordBreak: "break-word" } }, remoteSummaryDetail)
     ),
     // 桌面端不显示更新/重启横幅（更新由 DSH Desktop 管理），也不需要额外提示
     // 重启后提示（进程在后台运行，停止方法）——左侧蓝色色条（桌面端不会触发本插件的自重启）
@@ -2785,6 +2911,7 @@ function apply(ctx) {
   const rpcCall = (endpoint, payload, signal) => ctx.connection.rpc.call(POCKET_RPC_CHANNEL, endpoint, payload, signal);
   const translate = ctx.locale.bind(NS2);
   ctx.effect(() => ctx.locale.register(NS2, { zh: zh2, en: en2 }), "dsh-pocket: pocket locale dictionaries");
+  installPublicAccessIndicators(ctx, rpcCall, translate);
   ctx.slots.inject(
     "settings.section",
     () => ctx.slots.register(

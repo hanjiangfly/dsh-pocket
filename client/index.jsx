@@ -44,6 +44,81 @@ const styles = {
   warn: { color: 'var(--dsw-alias-state-warn-primary,#b45309)', fontSize: 12, lineHeight: 1.5 },
 };
 
+// 同一份后端事实同时驱动设置页摘要、设置导航徽标、全局设置入口的小圆点。
+// 后两者只是 DOM 增强：DSH 改版找不到节点时会静默失效，绝不影响设置页或安全逻辑。
+function publicAccessState(status) {
+  const phase = status?.tunnelState?.phase ?? 'idle';
+  const fixed = status?.fixed ?? {};
+  const fixedConfigured = Boolean(fixed.hostname && fixed.setup?.tunnel && fixed.setup?.dns);
+  if (status?.tunnelRunning && phase === 'ready') return { kind: 'online' };
+  if (['downloading', 'starting', 'registering', 'checking'].includes(phase)) return { kind: 'connecting' };
+  if (phase === 'error') return { kind: 'problem', detail: status?.tunnelState?.detail };
+  if (fixedConfigured) return { kind: 'problem', detail: 'fixed-stopped' };
+  return { kind: 'local' };
+}
+
+function publicStateColor(kind) {
+  return ({ local: '#8b93a1', connecting: '#b45309', online: '#15803d', problem: '#dc2626' })[kind] ?? '#8b93a1';
+}
+
+function publicStateLabel(t, kind) {
+  return kind === 'online' ? t('remoteSummaryOnline')
+    : kind === 'connecting' ? t('remoteSummaryConnecting')
+      : kind === 'problem' ? t('remoteSummaryProblem') : t('remoteSummaryLocal');
+}
+
+/**
+ * 两个非正式位置的“渐进增强”。DSH 没有为设置左栏/全局设置按钮提供状态插槽，
+ * 因而只在找到明确的交互节点时附加一个无交互的小圆点；找不到即什么也不做。
+ */
+function installPublicAccessIndicators(ctx, rpcCall, t) {
+  let latest = { kind: 'local' };
+  const candidates = (labels) => Array.from(document.querySelectorAll('button,[role="button"]'))
+    .filter((node) => labels.includes((node.textContent ?? '').trim()));
+  const paint = (node, id, expanded) => {
+    if (!node || !node.isConnected) return;
+    let dot = node.querySelector(`:scope > [data-dsh-pocket-status="${id}"]`);
+    if (!dot) {
+      dot = document.createElement('span');
+      dot.dataset.dshPocketStatus = id;
+      dot.setAttribute('aria-hidden', 'true');
+      dot.style.cssText = 'display:inline-block;width:8px;height:8px;border-radius:50%;margin-left:7px;vertical-align:middle;flex:0 0 auto;';
+      node.appendChild(dot);
+    }
+    const label = publicStateLabel(t, latest.kind);
+    dot.style.background = publicStateColor(latest.kind);
+    dot.title = label;
+    if (expanded) {
+      let text = node.querySelector(`:scope > [data-dsh-pocket-status-text="${id}"]`);
+      if (!text) {
+        text = document.createElement('span');
+        text.dataset.dshPocketStatusText = id;
+        text.style.cssText = 'font-size:11px;margin-left:5px;opacity:.82;white-space:nowrap;';
+        node.appendChild(text);
+      }
+      text.textContent = label;
+      text.style.color = publicStateColor(latest.kind);
+    }
+  };
+  const render = () => {
+    // 设置对话框左栏：“手机访问”状态点 + 短状态文字。
+    for (const node of candidates([t('section'), 'Phone access'])) paint(node, 'phone-nav', true);
+    // 应用左下角的“设置”：只显示圆点，避免挤压全局导航。
+    for (const node of candidates(['设置', 'Settings'])) paint(node, 'global-settings', false);
+  };
+  const refresh = async () => {
+    try { latest = publicAccessState(await rpcCall(POCKET_ENDPOINTS.status, {})); } catch { /* 本地服务短暂重启时保留上次灯色 */ }
+    render();
+  };
+  ctx.effect(() => {
+    refresh();
+    const observer = new MutationObserver(render);
+    observer.observe(document.documentElement, { childList: true, subtree: true });
+    const timer = setInterval(refresh, 3000);
+    return () => { observer.disconnect(); clearInterval(timer); };
+  }, 'dsh-pocket: public access status indicators');
+}
+
 function PocketSettingsTab({ rpcCall, t }) {
   const [status, setStatus] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -474,6 +549,22 @@ function PocketSettingsTab({ rpcCall, t }) {
     : fixedStatus === 'running' ? 'var(--dsw-alias-state-success-primary,#15803d)'
     : fixedStatus === 'ready' ? 'var(--dsw-alias-brand-primary,#4f6ef7)'
     : 'var(--dsw-alias-state-warn-primary,#b45309)';
+  const remoteState = publicAccessState(status);
+  let remoteHost = '—';
+  if (tunnelMode === 'fixed') remoteHost = fHostname;
+  else if (tunnelUrl) {
+    try { remoteHost = new URL(tunnelUrl).host; } catch { remoteHost = tunnelUrl; }
+  }
+  const remoteSummaryDetail = remoteState.kind === 'online'
+    ? fmt(t, 'remoteSummaryOnlineDetail', {
+      mode: tunnelMode === 'fixed' ? t('remoteModeFixed') : t('remoteModeQuick'),
+      host: remoteHost,
+      access: fAccess ? (fAccessVerified ? t('remoteAccessVerified') : t('remoteAccessUnverified')) : t('remoteAccessUnverified'),
+      pin: fixedPinRequired ? t('remotePinForced') : t('remotePinDisabled'),
+    })
+    : remoteState.kind === 'connecting' ? t('remoteSummaryConnectingDetail')
+      : remoteState.kind === 'problem' ? fmt(t, 'remoteSummaryProblemDetail', { detail: remoteState.detail === 'fixed-stopped' ? t('remoteSummaryStoppedFixed') : (remoteState.detail || t('fixedRuntimeStopped')) })
+        : t('remoteSummaryLocalDetail');
 
   return h('div', { style: styles.card },
     h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 } },
@@ -490,6 +581,15 @@ function PocketSettingsTab({ rpcCall, t }) {
           h('a', { href: 'https://github.com/hanjiangfly/dsh-pocket', target: '_blank', rel: 'noreferrer', style: { color: 'var(--dsw-alias-brand-primary,#4f6ef7)', fontSize: 12, lineHeight: 1.6, textDecoration: 'underline' } }, t('starFork')),
         ),
       ),
+    ),
+
+    // 保底层：官方 settings.section 插槽内的常驻状态摘要。
+    h('div', { style: { ...styles.block, borderLeft: `4px solid ${publicStateColor(remoteState.kind)}`, borderRadius: 8, background: 'var(--dsw-alias-bg-layer-2,#f7f7f8)', padding: '10px 12px' } },
+      h('div', { style: { display: 'flex', alignItems: 'center', gap: 7, fontWeight: 600, fontSize: 13 } },
+        h('span', { style: { width: 8, height: 8, borderRadius: '50%', background: publicStateColor(remoteState.kind), display: 'inline-block', flex: '0 0 auto' } }),
+        publicStateLabel(t, remoteState.kind),
+      ),
+      h('div', { style: { ...styles.muted, marginTop: 4, wordBreak: 'break-word' } }, remoteSummaryDetail),
     ),
 
     // 桌面端不显示更新/重启横幅（更新由 DSH Desktop 管理），也不需要额外提示
@@ -978,6 +1078,7 @@ export function apply(ctx) {
   // 设置页签接入 DSH 本地化：注册 pocket 词典（zh/en），并绑定一个随当前 locale 切换的 t()。
   const translate = ctx.locale.bind(POCKET_NS);
   ctx.effect(() => ctx.locale.register(POCKET_NS, { zh: POCKET_ZH, en: POCKET_EN }), 'dsh-pocket: pocket locale dictionaries');
+  installPublicAccessIndicators(ctx, rpcCall, translate);
 
   // 设置一级入口（与 通用设置/模型/插件 同级，order 1 = 通用之后、最外层）
   ctx.slots.inject('settings.section', () =>
