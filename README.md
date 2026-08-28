@@ -89,8 +89,8 @@ npm install -g @deepseek-ai/dsh     # 全局安装；验证：dsh --version
 
 ```sh
 # 1. 安装 DSH Pocket 公网版（从 GitHub 固定发行标签安装）
-# 将 v1.14.6-public.1 替换成 Releases 页面显示的最新稳定标签
-dsh plugin --profile web add -w github:hanjiangfly/dsh-pocket#v1.14.6-public.1
+# 将 v1.14.6-public.2 替换成 Releases 页面显示的最新稳定标签
+dsh plugin --profile web add -w github:hanjiangfly/dsh-pocket#v1.14.6-public.2
 
 # 2. 重启 dsh web
 npx @deepseek-ai/dsh web
