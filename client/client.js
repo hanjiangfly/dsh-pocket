@@ -1452,6 +1452,8 @@ var zh2 = {
   "virtualPinOffBody": "\u52A0\u5165\u540C\u4E00 Tailscale / ZeroTier \u7F51\u7EDC\u7684\u8BBE\u5907\u5C06\u53EF\u76F4\u63A5\u8FDB\u5165 DSH\u3002\u8BF7\u786E\u8BA4\u8FD9\u4E9B\u8BBE\u5907\u90FD\u7531\u4F60\u63A7\u5236\u3002",
   "virtualPinOffConfirm": "\u4ECD\u7136\u5173\u95ED",
   "guestTitle": "\u{1F465} \u4E34\u65F6\u8BBF\u5BA2\u8BBF\u95EE",
+  "guestReadonlyTitle": "\u{1F512} \u6B64\u9875\u9762\u7531\u6240\u6709\u8005\u7BA1\u7406",
+  "guestReadonlyBody": "\u4F60\u6B63\u5728\u901A\u8FC7\u4E34\u65F6\u5206\u4EAB\u94FE\u63A5\u8BBF\u95EE DSH\u3002\u4E3A\u4FDD\u62A4\u6240\u6709\u8005\u7684\u7F51\u7EDC\u4E0E\u5B89\u5168\u8BBE\u7F6E\uFF0C\u4E8C\u7EF4\u7801\u3001\u8BBF\u95EE\u5730\u5740\u3001\u5BC6\u7801\u548C\u7BA1\u7406\u5F00\u5173\u4E0D\u4F1A\u663E\u793A\u3002",
   "guestHint": "\u521B\u5EFA\u5E26\u6709\u6548\u671F\u7684\u72EC\u7ACB PIN\uFF1B\u53EF\u67E5\u770B\u5728\u7EBF\u72B6\u6001\u3001\u7981\u7528\u767B\u5F55\u3001\u8E22\u4E0B\u7EBF\u6216\u7ACB\u5373\u4F5C\u5E9F\u3002\u5173\u95ED\u603B\u5F00\u5173\u4F1A\u7EC8\u6B62\u5168\u90E8\u8BBF\u5BA2\u4F1A\u8BDD\u3002",
   "guestFullAccessWarning": "\u26A0 \u8BBF\u5BA2\u62E5\u6709\u5B8C\u6574 DSH \u64CD\u4F5C\u80FD\u529B\uFF0C\u4EC5\u5206\u4EAB\u7ED9\u53EF\u4FE1\u7684\u4EBA\u3002Cloudflare Access \u542F\u7528\u65F6\uFF0C\u8BBF\u5BA2\u4ECD\u9700\u5148\u901A\u8FC7\u5176\u8FB9\u7F18\u8BA4\u8BC1\u3002",
   "guestLabel": "\u5907\u6CE8\uFF08\u5982\uFF1A\u540C\u4E8B\uFF09",
@@ -1674,6 +1676,8 @@ var en2 = {
   "virtualPinOffBody": "Devices that joined the same Tailscale / ZeroTier network can enter DSH directly. Confirm that you control all of those devices.",
   "virtualPinOffConfirm": "Turn off anyway",
   "guestTitle": "\u{1F465} Temporary guest access",
+  "guestReadonlyTitle": "\u{1F512} This page is managed by the owner",
+  "guestReadonlyBody": "You are accessing DSH through a temporary shared link. To protect the owner\u2019s network and security settings, QR codes, access addresses, passwords, and management controls are hidden.",
   "guestHint": "Create expiring PINs, see activity, disable sign-ins, sign sessions out, or revoke access. Turning this feature off ends all guest sessions.",
   "guestFullAccessWarning": "\u26A0 Guests have full DSH capabilities. Share only with people you trust. With Cloudflare Access enabled, guests must pass edge authentication first.",
   "guestLabel": "Label (e.g. coworker)",
@@ -1844,6 +1848,7 @@ function publicStateLabel(t, kind) {
   return kind === "online" ? t("remoteSummaryOnline") : kind === "connecting" ? t("remoteSummaryConnecting") : kind === "problem" ? t("remoteSummaryProblem") : t("remoteSummaryLocal");
 }
 function installPublicAccessIndicators(ctx, rpcCall, t) {
+  if (globalThis.__dshPocketVisitor?.role === "guest") return;
   let latest = { kind: "local" };
   const entryText = (node) => {
     const clone = node.cloneNode(true);
@@ -1890,6 +1895,7 @@ function installPublicAccessIndicators(ctx, rpcCall, t) {
   }, "dsh-pocket: public access status indicators");
 }
 function PocketSettingsTab({ rpcCall, t }) {
+  const isGuestVisitor = globalThis.__dshPocketVisitor?.role === "guest";
   const [status, setStatus] = (0, import_react2.useState)(null);
   const [activeTab, setActiveTab] = (0, import_react2.useState)("access");
   const [autoRestoreRiskOpen, setAutoRestoreRiskOpen] = (0, import_react2.useState)(false);
@@ -2351,6 +2357,17 @@ function PocketSettingsTab({ rpcCall, t }) {
     style: { ...styles.btn, height: 30, padding: "0 11px", fontSize: 12, fontWeight: activeTab === id ? 600 : 400, background: activeTab === id ? "var(--dsw-alias-button-primary-fill,var(--dsw-alias-brand-primary,#4f6ef7))" : "var(--dsw-alias-bg-layer-1,#fff)", color: activeTab === id ? "var(--dsw-alias-label-primary-foreground,#fff)" : "var(--dsw-alias-label-primary,inherit)" },
     onClick: () => setActiveTab(id)
   }, label);
+  if (isGuestVisitor) return (0, import_react2.createElement)(
+    "div",
+    { style: styles.card },
+    (0, import_react2.createElement)("strong", null, t("title")),
+    (0, import_react2.createElement)(
+      "div",
+      { style: { ...styles.block, borderLeft: "4px solid var(--dsw-alias-state-warn-primary,#b45309)", borderRadius: 8, background: "var(--dsw-alias-bg-layer-2,#f7f7f8)", padding: "12px" } },
+      (0, import_react2.createElement)("div", { style: { fontWeight: 600, fontSize: 13 } }, t("guestReadonlyTitle")),
+      (0, import_react2.createElement)("div", { style: { ...styles.muted, marginTop: 5 } }, t("guestReadonlyBody"))
+    )
+  );
   return (0, import_react2.createElement)(
     "div",
     { style: styles.card },

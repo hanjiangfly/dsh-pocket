@@ -73,6 +73,7 @@ function publicStateLabel(t, kind) {
  * 因而只在找到明确的交互节点时附加一个无交互的小圆点；找不到即什么也不做。
  */
 function installPublicAccessIndicators(ctx, rpcCall, t) {
+  if (globalThis.__dshPocketVisitor?.role === 'guest') return;
   let latest = { kind: 'local' };
   // 自己插入的状态节点不参与匹配，避免热更新或后续状态刷新时把“手机访问 ●”误判为另一个标签。
   const entryText = (node) => {
@@ -123,6 +124,7 @@ function installPublicAccessIndicators(ctx, rpcCall, t) {
 }
 
 function PocketSettingsTab({ rpcCall, t }) {
+  const isGuestVisitor = globalThis.__dshPocketVisitor?.role === 'guest';
   const [status, setStatus] = useState(null);
   const [activeTab, setActiveTab] = useState('access');
   const [autoRestoreRiskOpen, setAutoRestoreRiskOpen] = useState(false);
@@ -586,6 +588,16 @@ function PocketSettingsTab({ rpcCall, t }) {
     style: { ...styles.btn, height: 30, padding: '0 11px', fontSize: 12, fontWeight: activeTab === id ? 600 : 400, background: activeTab === id ? 'var(--dsw-alias-button-primary-fill,var(--dsw-alias-brand-primary,#4f6ef7))' : 'var(--dsw-alias-bg-layer-1,#fff)', color: activeTab === id ? 'var(--dsw-alias-label-primary-foreground,#fff)' : 'var(--dsw-alias-label-primary,inherit)' },
     onClick: () => setActiveTab(id),
   }, label);
+
+  // 分享链接访客：不展示公网地址、二维码、PIN、网络/安全开关或访客管理。
+  // 这层是防误操作与信息暴露的 UI 隔离，不替代后续服务端授权。
+  if (isGuestVisitor) return h('div', { style: styles.card },
+    h('strong', null, t('title')),
+    h('div', { style: { ...styles.block, borderLeft: '4px solid var(--dsw-alias-state-warn-primary,#b45309)', borderRadius: 8, background: 'var(--dsw-alias-bg-layer-2,#f7f7f8)', padding: '12px' } },
+      h('div', { style: { fontWeight: 600, fontSize: 13 } }, t('guestReadonlyTitle')),
+      h('div', { style: { ...styles.muted, marginTop: 5 } }, t('guestReadonlyBody')),
+    ),
+  );
 
   return h('div', { style: styles.card },
     h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 } },
