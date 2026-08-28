@@ -70,6 +70,17 @@ test('局域网地址覆盖：默认自动，设置/清除持久化，非法 IPv
   assert.equal(lanIpOverride(), '', '恢复自动');
 }));
 
+test('公网自动恢复：开关和恢复目标写入同一份 settings.json，关闭时一并清除目标', () => withHome(async () => {
+  const { publicAutoRestore, setPublicAutoRestore, publicAutoRestoreMode, setPublicAutoRestoreMode, settingsPath } = await import('../lib/settings.mjs');
+  assert.equal(setPublicAutoRestore(true), true);
+  assert.equal(setPublicAutoRestoreMode('fixed'), 'fixed');
+  assert.equal(publicAutoRestore(), true);
+  assert.equal(publicAutoRestoreMode(), 'fixed');
+  assert.equal(JSON.parse(readFileSync(settingsPath(), 'utf8')).publicAutoRestoreMode, 'fixed');
+  assert.equal(setPublicAutoRestore(false), false);
+  assert.equal(publicAutoRestoreMode(), null, '关闭恢复授权时不保留旧目标');
+}));
+
 test('Pocket 代理端口：默认自动；自定义端口持久化；非法值拒绝', () => withHome(async () => {
   const { proxyPort, setProxyPort, settingsPath } = await import('../lib/settings.mjs');
   assert.equal(proxyPort(), null, '缺失配置 = 自动模式');

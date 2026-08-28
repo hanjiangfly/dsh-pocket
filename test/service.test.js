@@ -742,6 +742,31 @@ test('公网隧道自动恢复：开启时持久化标记，重启后 restoreTun
   await fsp.rm(home, { recursive: true, force: true });
 });
 
+test('公网自动恢复：恢复目标和开关同源时，不依赖单独 tunnel-auto.json', async () => {
+  let restoredMode = null;
+  const internals = {
+    ...stubInternals(),
+    startNamedTunnel: async () => {
+      restoredMode = 'fixed';
+      return { url: 'https://dsh.example.com', kill: () => {} };
+    },
+    certExists: async () => true,
+  };
+  const service = createPocketService({
+    dshPort: 3080,
+    port: 3081,
+    internals,
+    getPublicAutoRestore: () => true,
+    getPublicAutoRestoreMode: () => 'fixed',
+    getFixedHostname: () => 'dsh.example.com',
+    getFixedTunnelId: () => 'tunnel-id',
+  });
+  await service.startProxy();
+  await service.restoreTunnelIfNeeded();
+  assert.equal(restoredMode, 'fixed', '无 home/状态文件时仍按 settings 的固定域名目标恢复');
+  await service.dispose();
+});
+
 test('RPC：局域网密码独立于公网；lanTokenRefresh 刷新并返回新密码（issue #18）', async () => {
   const internals = stubInternals();
   const service = createPocketService({ dshPort: 3080, port: 3081, internals });
